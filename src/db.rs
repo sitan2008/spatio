@@ -117,12 +117,12 @@ impl DB {
     /// Insert a single key-value pair atomically
     pub fn insert(
         &self,
-        key: impl Into<Bytes>,
-        value: impl Into<Bytes>,
+        key: impl AsRef<[u8]>,
+        value: impl AsRef<[u8]>,
         opts: Option<SetOptions>,
     ) -> Result<Option<Bytes>> {
-        let key = key.into();
-        let value = value.into();
+        let key = Bytes::copy_from_slice(key.as_ref());
+        let value = Bytes::copy_from_slice(value.as_ref());
 
         let mut inner = self.write()?;
         if inner.closed {

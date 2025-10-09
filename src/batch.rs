@@ -35,12 +35,12 @@ impl AtomicBatch {
     /// Add an insert operation to the batch
     pub fn insert(
         &mut self,
-        key: impl Into<Bytes>,
-        value: impl Into<Bytes>,
+        key: impl AsRef<[u8]>,
+        value: impl AsRef<[u8]>,
         opts: Option<SetOptions>,
     ) -> Result<()> {
-        let key = key.into();
-        let value = value.into();
+        let key = Bytes::copy_from_slice(key.as_ref());
+        let value = Bytes::copy_from_slice(value.as_ref());
 
         self.operations
             .push(BatchOperation::Insert { key, value, opts });
@@ -50,8 +50,8 @@ impl AtomicBatch {
     }
 
     /// Add a delete operation to the batch
-    pub fn delete(&mut self, key: impl Into<Bytes>) -> Result<()> {
-        let key = key.into();
+    pub fn delete(&mut self, key: impl AsRef<[u8]>) -> Result<()> {
+        let key = Bytes::copy_from_slice(key.as_ref());
 
         self.operations.push(BatchOperation::Delete { key });
         self.operation_count += 1;
