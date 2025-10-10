@@ -381,19 +381,142 @@ jobs:
           key: examples-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Extract and test code examples
+        shell: bash
         run: |
+          set -e
+          echo "Testing documentation examples..."
+
           # Create a temporary project to test examples
-          mkdir -p /tmp/doc_examples
-          cd /tmp/doc_examples
+          TEMP_DIR=$(mktemp -d)
+          cd "$TEMP_DIR"
 
-          cargo init --name doc_examples
-          echo 'spatio_lite = { path = "'$GITHUB_WORKSPACE'" }' >> Cargo.toml
+          # Initialize a new Cargo project
+          cargo init --name doc_examples --bin
 
-          # Extract code blocks from documentation
-          find $GITHUB_WORKSPACE -name "*.md" -exec grep -l "```rust" {} \; | while read file; do
-            echo "Checking examples in $file"
-            # This is a simplified check - in practice you'd want more sophisticated extraction
-          done
+          # Add spatio_lite as a dependency
+          echo "spatio_lite = { path = \"$GITHUB_WORKSPACE\" }" >> Cargo.toml
+
+          echo "Testing basic README example..."
+
+          # Test 1: Basic example from README
+          cat > src/main.rs << 'EXAMPLE_EOF'
+          use spatio_lite::{Point, SetOptions, SpatioLite};
+          use std::time::Duration;
+
+          fn main() -> Result<(), Box<dyn std::error::Error>> {
+              let db = SpatioLite::memory()?;
+              let nyc = Point::new(40.7128, -74.0060);
+              db.insert_point("location:nyc", &nyc, None)?;
+              db.insert_point_with_geohash("cities", &nyc, 8, b"New York City", None)?;
+
+              db.atomic(|batch| {
+                  batch.insert("sensor:temp", b"22.5C", None)?;
+                  batch.insert("sensor:humidity", b"65%", None)?;
+                  Ok(())
+              })?;
+
+              let opts = SetOptions::with_ttl(Duration::from_secs(300));
+              db.insert("temp:reading", b"sensor_data", Some(opts))?;
+
+              let nearby = db.find_nearest_neighbors("cities", &nyc, 10000.0, 10)?;
+              println!("✅ Basic example passed! Found {} cities", nearby.len());
+              Ok(())
+          }
+          EXAMPLE_EOF
+
+          cargo run --quiet
+
+          echo "Testing sensor example..."
+
+          # Test 2: Sensor example
+          cat > src/main.rs << 'EXAMPLE_EOF'
+          use spatio_lite::{Point, SpatioLite};
+
+          fn main() -> Result<(), Box<dyn std::error::Error>> {
+              let db = SpatioLite::memory()?;
+              let sensor_location = Point::new(40.7128, -74.0060);
+              db.insert_point_with_geohash("sensors", &sensor_location, 8, b"temp:22.5,humidity:65", None)?;
+              let nearby_sensors = db.find_nearest_neighbors("sensors", &sensor_location, 1000.0, 10)?;
+              println!("✅ Sensor example passed! Found {} sensors", nearby_sensors.len());
+              Ok(())
+          }
+          EXAMPLE_EOF
+
+          cargo run --quiet
+
+          echo "Testing trajectory example..."
+
+          # Test 3: Trajectory example
+          cat > src/main.rs << 'EXAMPLE_EOF'
+          use spatio_lite::{Point, SpatioLite};
+
+          fn main() -> Result<(), Box<dyn std::error::Error>> {
+              let db = SpatioLite::memory()?;
+              let trajectory = vec![
+                  (Point::new(40.7128, -74.0060), 1640995200),
+                  (Point::new(40.7150, -74.0040), 1640995230),
+                  (Point::new(40.7172, -74.0020), 1640995260),
+              ];
+              db.insert_trajectory("uav:alpha", &trajectory, None)?;
+              let path = db.query_trajectory("uav:alpha", 1640995200, 1640995260)?;
+              println!("✅ Trajectory example passed! Found {} points", path.len());
+              Ok(())
+          }
+          EXAMPLE_EOF
+
+          cargo run --quiet
+
+          echo "Testing TTL example..."
+
+          # Test 4: TTL example
+          cat > src/main.rs << 'EXAMPLE_EOF'
+          use spatio_lite::{SetOptions, SpatioLite};
+          use std::time::Duration;
+
+          fn main() -> Result<(), Box<dyn std::error::Error>> {
+              let db = SpatioLite::memory()?;
+              let ttl_opts = SetOptions::with_ttl(Duration::from_secs(3600));
+              db.insert("analytics:traffic:route_66", b"congestion_level:high", Some(ttl_opts))?;
+              let value = db.get("analytics:traffic:route_66")?;
+              assert!(value.is_some());
+              println!("✅ TTL example passed!");
+              Ok(())
+          }
+          EXAMPLE_EOF
+
+          cargo run --quiet
+
+          echo "Testing configuration example..."
+
+          # Test 5: Configuration example
+          cat > src/main.rs << 'EXAMPLE_EOF'
+          use spatio_lite::{Config, SpatioLite, SyncPolicy};
+
+          fn main() -> Result<(), Box<dyn std::error::Error>> {
+              let config = Config {
+                  sync_policy: SyncPolicy::EverySecond,
+                  auto_shrink_disabled: false,
+                  max_dimensions: 3,
+                  ..Default::default()
+              };
+
+              let db = SpatioLite::memory()?;
+              db.set_config(config)?;
+              println!("✅ Configuration example passed!");
+              Ok(())
+          }
+          EXAMPLE_EOF
+
+          cargo run --quiet
+
+          # Cleanup
+          cd "$GITHUB_WORKSPACE"
+          rm -rf "$TEMP_DIR"
+
+          echo "Testing lib.rs doc tests..."
+          cargo test --doc --quiet
+
+          echo "🎉 All documentation examples passed!"
 
   spellcheck:
     name: Spell Check Documentation
