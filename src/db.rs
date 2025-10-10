@@ -5,6 +5,7 @@ use crate::persistence::AOFFile;
 use crate::spatial::{BoundingBox, Point, SpatialKey};
 use crate::types::{Config, DbItem, DbStats, SetOptions};
 use bytes::Bytes;
+use geohash;
 use std::collections::{BTreeMap, HashMap};
 
 use std::path::Path;
@@ -207,7 +208,7 @@ impl DB {
     }
 
     /// Read-only access to the database
-    pub fn view<F, R>(&self, f: F) -> Result<R>
+    pub(crate) fn view<F, R>(&self, f: F) -> Result<R>
     where
         F: FnOnce(&DBInner) -> Result<R>,
     {
@@ -261,14 +262,14 @@ impl DB {
     }
 
     /// Get a read lock on the inner data
-    fn read(&self) -> Result<RwLockReadGuard<DBInner>> {
+    fn read(&self) -> Result<RwLockReadGuard<'_, DBInner>> {
         self.inner
             .read()
             .map_err(|_| SpatioLiteError::Lock("Failed to acquire read lock".to_string()))
     }
 
     /// Get a write lock on the inner data
-    fn write(&self) -> Result<RwLockWriteGuard<DBInner>> {
+    fn write(&self) -> Result<RwLockWriteGuard<'_, DBInner>> {
         self.inner
             .write()
             .map_err(|_| SpatioLiteError::Lock("Failed to acquire write lock".to_string()))
@@ -556,25 +557,35 @@ impl DB {
         let mut results = Vec::new();
         let inner = self.read()?;
 
-        // Simple scan of all keys with prefix
+        // Search for both simple point storage and geohash-indexed storage
         for (key, item) in &inner.keys {
             let key_str = String::from_utf8_lossy(key);
-            if key_str.starts_with(prefix) && !item.is_expired() {
-                // Try to parse stored point data
-                let value_str = String::from_utf8_lossy(&item.value);
-                if let Some((lat_str, lon_str)) = value_str.split_once(',') {
-                    if let (Ok(lat), Ok(lon)) = (lat_str.parse::<f64>(), lon_str.parse::<f64>()) {
-                        let point = Point::new(lat, lon);
-                        let distance = center.distance_to(&point);
+            if !item.is_expired() {
+                let mut point_opt: Option<Point> = None;
 
-                        if distance <= radius_meters {
-                            results.push((
-                                key_str.to_string(),
-                                item.value.clone(),
-                                point,
-                                distance,
-                            ));
+                // Check if this is a geohash-indexed key
+                if key_str.starts_with(&format!("{}:gh:", prefix)) {
+                    // Extract geohash from key like "prefix:gh:geohash"
+                    if let Some(geohash_part) = key_str.split(':').nth(2) {
+                        if let Ok(decoded) = geohash::decode(geohash_part) {
+                            point_opt = Some(Point::new(decoded.0.y, decoded.0.x));
                         }
+                    }
+                } else if key_str.starts_with(prefix) {
+                    // Try to parse stored point data for simple storage
+                    let value_str = String::from_utf8_lossy(&item.value);
+                    if let Some((lat_str, lon_str)) = value_str.split_once(',') {
+                        if let (Ok(lat), Ok(lon)) = (lat_str.parse::<f64>(), lon_str.parse::<f64>())
+                        {
+                            point_opt = Some(Point::new(lat, lon));
+                        }
+                    }
+                }
+
+                if let Some(point) = point_opt {
+                    let distance = center.distance_to(&point);
+                    if distance <= radius_meters {
+                        results.push((key_str.to_string(), item.value.clone(), point, distance));
                     }
                 }
             }
@@ -687,24 +698,49 @@ impl DB {
         self.find_nearest_neighbors(prefix, center, radius_meters, limit)
     }
 
-    pub fn within(&self, prefix: &str, _bbox: &BoundingBox) -> Result<Vec<(String, Bytes, Point)>> {
-        // Simplified bounding box query
+    pub fn within(&self, prefix: &str, bbox: &BoundingBox) -> Result<Vec<(String, Bytes, Point)>> {
         let mut results = Vec::new();
         let inner = self.read()?;
 
         for (key, item) in &inner.keys {
             let key_str = String::from_utf8_lossy(key);
-            if key_str.starts_with(prefix) && !item.is_expired() {
-                let value_str = String::from_utf8_lossy(&item.value);
-                if let Some((lat_str, lon_str)) = value_str.split_once(',') {
-                    if let (Ok(lat), Ok(lon)) = (lat_str.parse::<f64>(), lon_str.parse::<f64>()) {
-                        let point = Point::new(lat, lon);
+            if !item.is_expired() {
+                let mut point_opt: Option<Point> = None;
+
+                // Check if this is a geohash-indexed key
+                if key_str.starts_with(&format!("{}:gh:", prefix)) {
+                    // Extract geohash from key like "prefix:gh:geohash"
+                    if let Some(geohash_part) = key_str.split(':').nth(2) {
+                        if let Ok(decoded) = geohash::decode(geohash_part) {
+                            point_opt = Some(Point::new(decoded.0.y, decoded.0.x));
+                        }
+                    }
+                } else if key_str.starts_with(prefix) {
+                    // Try to parse stored point data for simple storage
+                    let value_str = String::from_utf8_lossy(&item.value);
+                    if let Some((lat_str, lon_str)) = value_str.split_once(',') {
+                        if let (Ok(lat), Ok(lon)) = (lat_str.parse::<f64>(), lon_str.parse::<f64>())
+                        {
+                            point_opt = Some(Point::new(lat, lon));
+                        }
+                    }
+                }
+
+                if let Some(point) = point_opt {
+                    if point.within_bounds(bbox.min.lat, bbox.min.lon, bbox.max.lat, bbox.max.lon) {
                         results.push((key_str.to_string(), item.value.clone(), point));
                     }
                 }
             }
         }
         Ok(results)
+    }
+
+    /// Manually trigger cleanup of expired items (useful for testing)
+    pub fn cleanup_expired(&self) -> Result<()> {
+        let mut inner = self.write()?;
+        inner.cleanup_expired();
+        Ok(())
     }
 }
 

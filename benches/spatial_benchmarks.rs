@@ -68,42 +68,58 @@ fn benchmark_spatial_operations(c: &mut Criterion) {
 
     // Benchmark geohash insertion
     group.bench_function("geohash_insert", |b| {
-        let mut counter = 0;
-        b.iter(|| {
-            let lat = 40.7128 + (counter as f64 * 0.001);
-            let lon = -74.0060 + (counter as f64 * 0.001);
-            let point = Point::new(lat, lon);
-            let data = format!("data:{}", counter);
-            counter += 1;
-            db.insert_point_with_geohash(
-                "geohash_bench",
-                black_box(&point),
-                8,
-                black_box(data.as_bytes()),
-                None,
-            )
-            .unwrap()
-        })
+        b.iter_with_setup(
+            || {
+                // Setup: create unique coordinates for each iteration
+                static mut COUNTER: usize = 0;
+                unsafe {
+                    COUNTER += 1;
+                    let lat = 40.7128 + (COUNTER as f64 * 0.0001);
+                    let lon = -74.0060 + (COUNTER as f64 * 0.0001);
+                    let point = Point::new(lat, lon);
+                    let data = format!("data:{}", COUNTER);
+                    (point, data, COUNTER)
+                }
+            },
+            |(point, data, _counter)| {
+                db.insert_point_with_geohash(
+                    "geohash_bench",
+                    black_box(&point),
+                    8,
+                    black_box(data.as_bytes()),
+                    None,
+                )
+                .unwrap()
+            },
+        )
     });
 
     // Benchmark S2 cell insertion
     group.bench_function("s2_insert", |b| {
-        let mut counter = 0;
-        b.iter(|| {
-            let lat = 40.7128 + (counter as f64 * 0.001);
-            let lon = -74.0060 + (counter as f64 * 0.001);
-            let point = Point::new(lat, lon);
-            let data = format!("data:{}", counter);
-            counter += 1;
-            db.insert_point_with_s2(
-                "s2_bench",
-                black_box(&point),
-                16,
-                black_box(data.as_bytes()),
-                None,
-            )
-            .unwrap()
-        })
+        b.iter_with_setup(
+            || {
+                // Setup: create unique coordinates for each iteration
+                static mut COUNTER: usize = 0;
+                unsafe {
+                    COUNTER += 1;
+                    let lat = 40.7128 + (COUNTER as f64 * 0.0001);
+                    let lon = -74.0060 + (COUNTER as f64 * 0.0001);
+                    let point = Point::new(lat, lon);
+                    let data = format!("data:{}", COUNTER);
+                    (point, data, COUNTER)
+                }
+            },
+            |(point, data, _counter)| {
+                db.insert_point_with_s2(
+                    "s2_bench",
+                    black_box(&point),
+                    16,
+                    black_box(data.as_bytes()),
+                    None,
+                )
+                .unwrap()
+            },
+        )
     });
 
     // Setup data for spatial queries
@@ -140,27 +156,33 @@ fn benchmark_trajectory_operations(c: &mut Criterion) {
 
     // Benchmark trajectory insertion
     group.bench_function("trajectory_insert_100_points", |b| {
-        let mut counter = 0;
-        b.iter(|| {
-            let mut trajectory = Vec::new();
-            let base_lat = 40.7128;
-            let base_lon = -74.0060;
-            let base_time = 1640995200 + counter * 1000;
+        b.iter_with_setup(
+            || {
+                static mut COUNTER: usize = 0;
+                unsafe {
+                    COUNTER += 1;
+                    let mut trajectory = Vec::new();
+                    let base_lat = 40.7128;
+                    let base_lon = -74.0060;
+                    let base_time = 1640995200u64 + (COUNTER as u64) * 1000;
 
-            for i in 0..100 {
-                let lat = base_lat + (i as f64 * 0.0001);
-                let lon = base_lon + (i as f64 * 0.0001);
-                let point = Point::new(lat, lon);
-                let timestamp = base_time + i * 10;
-                trajectory.push((point, timestamp));
-            }
+                    for i in 0..100 {
+                        let lat = base_lat + (i as f64 * 0.0001);
+                        let lon = base_lon + (i as f64 * 0.0001);
+                        let point = Point::new(lat, lon);
+                        let timestamp = base_time + (i as u64) * 10;
+                        trajectory.push((point, timestamp));
+                    }
 
-            let object_id = format!("trajectory:{}", counter);
-            counter += 1;
-
-            db.insert_trajectory(black_box(&object_id), black_box(&trajectory), None)
-                .unwrap()
-        })
+                    let object_id = format!("trajectory:{}", COUNTER);
+                    (object_id, trajectory)
+                }
+            },
+            |(object_id, trajectory)| {
+                db.insert_trajectory(black_box(&object_id), black_box(&trajectory), None)
+                    .unwrap()
+            },
+        )
     });
 
     // Setup trajectory data for querying
