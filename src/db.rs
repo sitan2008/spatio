@@ -129,23 +129,23 @@ impl DB {
             return Err(SpatioLiteError::DatabaseClosed);
         }
 
-        let item = if let Some(opts) = opts {
+        let item = if let Some(ref opts) = opts {
             if let Some(ttl) = opts.ttl {
-                DbItem::with_ttl(key.clone(), value, ttl)
+                DbItem::with_ttl(key.clone(), value.clone(), ttl)
             } else if let Some(expires_at) = opts.expires_at {
-                DbItem::with_expiration(key.clone(), value, expires_at)
+                DbItem::with_expiration(key.clone(), value.clone(), expires_at)
             } else {
-                DbItem::new(key.clone(), value)
+                DbItem::new(key.clone(), value.clone())
             }
         } else {
-            DbItem::new(key.clone(), value)
+            DbItem::new(key.clone(), value.clone())
         };
 
-        let old_item = inner.insert_item(key, item);
+        let old_item = inner.insert_item(key.clone(), item);
 
         // Write to AOF if persisting
-        if let Some(ref mut _aof_file) = inner.aof_file {
-            // TODO: Write operation to AOF
+        if let Some(ref mut aof_file) = inner.aof_file {
+            aof_file.write_set(&key, &value, opts.as_ref())?;
         }
 
         Ok(old_item.map(|item| item.value))
@@ -178,8 +178,8 @@ impl DB {
         let old_item = inner.remove_item(&key);
 
         // Write to AOF if persisting
-        if let Some(ref mut _aof_file) = inner.aof_file {
-            // TODO: Write delete operation to AOF
+        if let Some(ref mut aof_file) = inner.aof_file {
+            aof_file.write_delete(&key)?;
         }
 
         Ok(old_item.map(|item| item.value))
@@ -316,9 +316,45 @@ impl DB {
 
 impl DBInner {
     /// Load data from AOF file
-    fn load_from_aof(&mut self, _aof_file: &AOFFile) -> Result<()> {
-        // TODO: Implement AOF loading
-        // This would read commands from the AOF file and replay them
+    fn load_from_aof(&mut self, aof_file: &AOFFile) -> Result<()> {
+        use crate::persistence::AOFCommand;
+
+        // Clone the AOF file for reading
+        let mut aof_reader = AOFFile::open(aof_file.path())?;
+
+        // Replay all commands from the AOF file
+        aof_reader.replay(|command| {
+            match command {
+                AOFCommand::Set {
+                    key,
+                    value,
+                    expires_at,
+                } => {
+                    // Create DbItem with expiration if specified
+                    let item = if let Some(expires_at) = expires_at {
+                        DbItem::with_expiration(key.clone(), value, expires_at)
+                    } else {
+                        DbItem::new(key.clone(), value)
+                    };
+
+                    // Insert the item
+                    self.insert_item(key, item);
+                }
+                AOFCommand::Delete { key } => {
+                    // Remove the key
+                    self.remove_item(&key);
+                }
+                AOFCommand::Expire { key, expires_at } => {
+                    // Set expiration for the key
+                    if let Some(mut item) = self.keys.get(&key).cloned() {
+                        item.expires_at = Some(expires_at);
+                        self.insert_item(key.clone(), item);
+                    }
+                }
+            }
+            Ok(())
+        })?;
+
         Ok(())
     }
 
@@ -520,5 +556,49 @@ mod tests {
 
         // Should be expired now
         assert!(db.get("key1").unwrap().is_none());
+    }
+
+    #[test]
+    fn test_aof_persistence_and_replay() {
+        use tempfile::NamedTempFile;
+
+        let temp_file = NamedTempFile::new().unwrap();
+        let db_path = temp_file.path();
+
+        // Create database with persistence
+        {
+            let db = DB::open(db_path).unwrap();
+
+            // Insert some data
+            db.insert("key1", &b"value1"[..], None).unwrap();
+            db.insert("key2", &b"value2"[..], None).unwrap();
+
+            let opts = SetOptions::with_ttl(Duration::from_secs(3600));
+            db.insert("key3", &b"value3"[..], Some(opts)).unwrap();
+
+            // Delete a key
+            db.delete("key2").unwrap();
+
+            // Force AOF sync
+            let inner = db.read().unwrap();
+            if let Some(ref aof_file) = inner.aof_file {
+                let mut aof_clone = AOFFile::open(aof_file.path()).unwrap();
+                aof_clone.sync().unwrap();
+            }
+        }
+
+        // Reopen database - should replay from AOF
+        {
+            let db = DB::open(db_path).unwrap();
+
+            // Verify data was restored
+            assert_eq!(db.get("key1").unwrap().unwrap(), &b"value1"[..]);
+            assert!(db.get("key2").unwrap().is_none()); // Was deleted
+            assert_eq!(db.get("key3").unwrap().unwrap(), &b"value3"[..]);
+
+            // Verify stats
+            let stats = db.stats().unwrap();
+            assert_eq!(stats.key_count, 2); // key1 and key3
+        }
     }
 }

@@ -2,9 +2,9 @@ name: Documentation
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
   release:
     types: [published]
   workflow_dispatch:
@@ -18,305 +18,304 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-
-    - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        components: rustfmt
-
-    - name: Cache cargo
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: docs-cargo-${{ hashFiles('**/Cargo.lock') }}
-        restore-keys: |
-          docs-cargo-
-
-    - name: Install mdbook
-      run: |
-        cargo install mdbook
-        cargo install mdbook-mermaid
-        cargo install mdbook-linkcheck
-
-    - name: Create documentation structure
-      run: |
-        mkdir -p docs/src
-        mkdir -p docs/src/api
-        mkdir -p docs/src/guides
-        mkdir -p docs/src/examples
-
-    - name: Generate book.toml
-      run: |
-        cat > docs/book.toml << 'EOF'
-        [book]
-        authors = ["SpatioLite Contributors"]
-        language = "en"
-        multilingual = false
-        src = "src"
-        title = "SpatioLite Documentation"
-        description = "Embedded spatio-temporal database documentation"
-
-        [preprocessor.mermaid]
-        command = "mdbook-mermaid"
-
-        [preprocessor.linkcheck]
-        command = "mdbook-linkcheck"
-
-        [output.html]
-        default-theme = "navy"
-        preferred-dark-theme = "navy"
-        git-repository-url = "https://github.com/${{ github.repository }}"
-        edit-url-template = "https://github.com/${{ github.repository }}/edit/main/docs/{path}"
-        site-url = "/SpatioLite/"
-        cname = "spatiolite.dev"
-
-        [output.html.search]
-        enable = true
-        limit-results = 30
-        teaser-word-count = 30
-        use-boolean-and = true
-        boost-title = 2
-        boost-hierarchy = 1
-        boost-paragraph = 1
-        expand = true
-        heading-split-level = 3
-
-        [output.html.fold]
-        enable = true
-        level = 1
-
-        [output.html.playground]
-        runnable = true
-        EOF
-
-    - name: Generate main documentation
-      run: |
-        cat > docs/src/SUMMARY.md << 'EOF'
-        # Summary
-
-        [Introduction](./introduction.md)
-
-        # User Guide
-
-        - [Getting Started](./guides/getting-started.md)
-        - [Basic Operations](./guides/basic-operations.md)
-        - [Atomic Batches](./guides/atomic-batches.md)
-        - [Spatial Indexing](./guides/spatial-indexing.md)
-        - [Time-to-Live (TTL)](./guides/ttl.md)
-        - [Persistence](./guides/persistence.md)
-        - [Configuration](./guides/configuration.md)
-
-        # Examples
-
-        - [UAV Tracking](./examples/uav-tracking.md)
-        - [Sensor Networks](./examples/sensor-networks.md)
-        - [Real-time Analytics](./examples/real-time-analytics.md)
-        - [Performance Benchmarks](./examples/benchmarks.md)
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: docs-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            docs-cargo-
+
+      - name: Install mdbook
+        run: |
+          cargo install mdbook
+          cargo install mdbook-mermaid
+          cargo install mdbook-linkcheck
+
+      - name: Create documentation structure
+        run: |
+          mkdir -p docs/src
+          mkdir -p docs/src/api
+          mkdir -p docs/src/guides
+          mkdir -p docs/src/examples
+
+      - name: Generate book.toml
+        run: |
+          cat > docs/book.toml << 'EOF'
+          [book]
+          authors = ["SpatioLite Contributors"]
+          language = "en"
+          multilingual = false
+          src = "src"
+          title = "SpatioLite Documentation"
+          description = "Embedded spatio-temporal database documentation"
+
+          [preprocessor.mermaid]
+          command = "mdbook-mermaid"
+
+          [preprocessor.linkcheck]
+          command = "mdbook-linkcheck"
+
+          [output.html]
+          default-theme = "navy"
+          preferred-dark-theme = "navy"
+          git-repository-url = "https://github.com/${{ github.repository }}"
+          edit-url-template = "https://github.com/${{ github.repository }}/edit/main/docs/{path}"
+          site-url = "/SpatioLite/"
+          cname = "spatiolite.dev"
+
+          [output.html.search]
+          enable = true
+          limit-results = 30
+          teaser-word-count = 30
+          use-boolean-and = true
+          boost-title = 2
+          boost-hierarchy = 1
+          boost-paragraph = 1
+          expand = true
+          heading-split-level = 3
+
+          [output.html.fold]
+          enable = true
+          level = 1
+
+          [output.html.playground]
+          runnable = true
+          EOF
+
+      - name: Generate main documentation
+        run: |
+          cat > docs/src/SUMMARY.md << 'EOF'
+          # Summary
+
+          [Introduction](./introduction.md)
+
+          # User Guide
+
+          - [Getting Started](./guides/getting-started.md)
+          - [Basic Operations](./guides/basic-operations.md)
+          - [Atomic Batches](./guides/atomic-batches.md)
+          - [Spatial Indexing](./guides/spatial-indexing.md)
+          - [Time-to-Live (TTL)](./guides/ttl.md)
+          - [Persistence](./guides/persistence.md)
+          - [Configuration](./guides/configuration.md)
+
+          # Examples
+
+          - [UAV Tracking](./examples/uav-tracking.md)
+          - [Sensor Networks](./examples/sensor-networks.md)
+          - [Real-time Analytics](./examples/real-time-analytics.md)
+          - [Performance Benchmarks](./examples/benchmarks.md)
 
-        # API Reference
+          # API Reference
 
-        - [Database API](./api/database.md)
-        - [Transactions](./api/transactions.md)
-        - [Indexing](./api/indexing.md)
-        - [Types](./api/types.md)
-        - [Error Handling](./api/errors.md)
-
-        # Advanced Topics
+          - [Database API](./api/database.md)
+          - [Transactions](./api/transactions.md)
+          - [Indexing](./api/indexing.md)
+          - [Types](./api/types.md)
+          - [Error Handling](./api/errors.md)
 
-        - [Architecture](./advanced/architecture.md)
-        - [Performance Tuning](./advanced/performance.md)
-        - [Memory Management](./advanced/memory.md)
-        - [Concurrency](./advanced/concurrency.md)
+          # Advanced Topics
 
-        # Development
+          - [Architecture](./advanced/architecture.md)
+          - [Performance Tuning](./advanced/performance.md)
+          - [Memory Management](./advanced/memory.md)
+          - [Concurrency](./advanced/concurrency.md)
 
-        - [Contributing](./development/contributing.md)
-        - [Building from Source](./development/building.md)
-        - [Testing](./development/testing.md)
-        - [Benchmarking](./development/benchmarking.md)
-        EOF
+          # Development
 
-    - name: Generate introduction
-      run: |
-        cat > docs/src/introduction.md << 'EOF'
-        # SpatioLite
+          - [Contributing](./development/contributing.md)
+          - [Building from Source](./development/building.md)
+          - [Testing](./development/testing.md)
+          - [Benchmarking](./development/benchmarking.md)
+          EOF
 
-        SpatioLite is a high-performance, embedded spatio-temporal database designed for modern applications that need to store and query location-based data with temporal components.
+      - name: Generate introduction
+        run: |
+          cat > docs/src/introduction.md << 'EOF'
+          # SpatioLite
 
-        ## Key Features
+          SpatioLite is a high-performance, embedded spatio-temporal database designed for modern applications that need to store and query location-based data with temporal components.
 
-        - **🚀 High Performance**: In-memory storage with optional persistence
-        - **🌍 Spatial Indexing**: Multi-dimensional R-tree indexing for geospatial queries
-        - **⏰ Temporal Support**: Built-in TTL and time-based operations
-        - **🔒 Thread Safe**: Concurrent read/write operations with atomic batches
-        - **💾 Persistent**: Append-only file (AOF) format for durability
-        - **🦀 Zero Dependencies**: Pure Rust implementation
+          ## Key Features
 
-        ## Use Cases
+          - **🚀 High Performance**: In-memory storage with optional persistence
+          - **🌍 Spatial Indexing**: Multi-dimensional R-tree indexing for geospatial queries
+          - **⏰ Temporal Support**: Built-in TTL and time-based operations
+          - **🔒 Thread Safe**: Concurrent read/write operations with atomic batches
+          - **💾 Persistent**: Append-only file (AOF) format for durability
 
-        - **IoT & Sensor Networks**: Store sensor readings with location and time
-        - **Vehicle Tracking**: Track UAVs, cars, ships with real-time positions
-        - **Geospatial Analytics**: Analyze location patterns and movements
-        - **Edge Computing**: Lightweight database for resource-constrained environments
+          ## Use Cases
 
-        ## Quick Start
+          - **IoT & Sensor Networks**: Store sensor readings with location and time
+          - **Vehicle Tracking**: Track UAVs, cars, ships with real-time positions
+          - **Geospatial Analytics**: Analyze location patterns and movements
+          - **Edge Computing**: Lightweight database for resource-constrained environments
 
-        ```rust
-        use spatio_lite::SpatioLite;
+          ## Quick Start
 
-        let db = SpatioLite::memory()?;
+          ```rust
+          use spatio_lite::SpatioLite;
 
-        // Insert location data
-        db.insert("drone:001", b"lat:40.7128,lon:-74.0060,alt:100", None)?;
+          let db = SpatioLite::memory()?;
 
-        // Get the data
-        let location = db.get("drone:001")?.unwrap();
-        println!("Location: {}", String::from_utf8_lossy(&location));
+          // Insert location data
+          db.insert("drone:001", b"lat:40.7128,lon:-74.0060,alt:100", None)?;
 
-        // Atomic batch operations
-        db.atomic(|batch| {
-            batch.insert("sensor:temp", b"22.5°C", None)?;
-            batch.insert("sensor:humidity", b"65%", None)?;
-            Ok(())
-        })?;
-        ```
+          // Get the data
+          let location = db.get("drone:001")?.unwrap();
+          println!("Location: {}", String::from_utf8_lossy(&location));
 
-        ## Architecture Overview
+          // Atomic batch operations
+          db.atomic(|batch| {
+              batch.insert("sensor:temp", b"22.5°C", None)?;
+              batch.insert("sensor:humidity", b"65%", None)?;
+              Ok(())
+          })?;
+          ```
 
-        ```mermaid
-        graph TD
-            A[Application] --> B[SpatioLite API]
-            B --> C[Transaction Layer]
-            C --> D[Storage Engine]
-            D --> E[B-Tree Index]
-            D --> F[R-Tree Index]
-            D --> G[Memory Store]
-            G --> H[AOF Persistence]
+          ## Architecture Overview
 
-            style A fill:#e1f5fe
-            style B fill:#f3e5f5
-            style C fill:#fff3e0
-            style D fill:#e8f5e8
-        ```
+          ```mermaid
+          graph TD
+              A[Application] --> B[SpatioLite API]
+              B --> C[Transaction Layer]
+              C --> D[Storage Engine]
+              D --> E[B-Tree Index]
+              D --> F[R-Tree Index]
+              D --> G[Memory Store]
+              G --> H[AOF Persistence]
 
-        ## Performance
+              style A fill:#e1f5fe
+              style B fill:#f3e5f5
+              style C fill:#fff3e0
+              style D fill:#e8f5e8
+          ```
 
-        SpatioLite is designed for high-throughput scenarios:
+          ## Performance
 
-        - **1M+ operations/second** for in-memory workloads
-        - **Sub-millisecond** query latency for indexed data
-        - **Concurrent** read/write operations
-        - **Memory-efficient** spatial indexing
+          SpatioLite is designed for high-throughput scenarios:
 
-        ## Next Steps
+          - **1M+ operations/second** for in-memory workloads
+          - **Sub-millisecond** query latency for indexed data
+          - **Concurrent** read/write operations
+          - **Memory-efficient** spatial indexing
 
-        - [Getting Started Guide](./guides/getting-started.md)
-        - [Basic Operations](./guides/basic-operations.md)
-        - [API Reference](./api/database.md)
-        EOF
+          ## Next Steps
 
-    - name: Generate getting started guide
-      run: |
-        mkdir -p docs/src/guides
-        cat > docs/src/guides/getting-started.md << 'EOF'
-        # Getting Started
+          - [Getting Started Guide](./guides/getting-started.md)
+          - [Basic Operations](./guides/basic-operations.md)
+          - [API Reference](./api/database.md)
+          EOF
 
-        This guide will help you get up and running with SpatioLite quickly.
+      - name: Generate getting started guide
+        run: |
+          mkdir -p docs/src/guides
+          cat > docs/src/guides/getting-started.md << 'EOF'
+          # Getting Started
 
-        ## Installation
+          This guide will help you get up and running with SpatioLite quickly.
 
-        Add SpatioLite to your `Cargo.toml`:
+          ## Installation
 
-        ```toml
-        [dependencies]
-        spatio_lite = "0.1"
-        ```
+          Add SpatioLite to your `Cargo.toml`:
 
-        ## Basic Example
+          ```toml
+          [dependencies]
+          spatio_lite = "0.1"
+          ```
 
-        ```rust
-        use spatio_lite::{SpatioLite, SetOptions};
-        use std::time::Duration;
+          ## Basic Example
 
-        fn main() -> Result<(), Box<dyn std::error::Error>> {
-            // Create an in-memory database
-            let db = SpatioLite::memory()?;
+          ```rust
+          use spatio_lite::{SpatioLite, SetOptions};
+          use std::time::Duration;
 
-            // Insert some data
-            db.insert("location:paris", b"48.8566,2.3522", None)?;
+          fn main() -> Result<(), Box<dyn std::error::Error>> {
+              // Create an in-memory database
+              let db = SpatioLite::memory()?;
 
-            // Insert with TTL
-            let opts = SetOptions::with_ttl(Duration::from_secs(300));
-            db.insert("temp:sensor1", b"23.5", Some(opts))?;
+              // Insert some data
+              db.insert("location:paris", b"48.8566,2.3522", None)?;
 
-            // Retrieve data
-            if let Some(coords) = db.get("location:paris")? {
-                println!("Paris coordinates: {}", String::from_utf8_lossy(&coords));
-            }
+              // Insert with TTL
+              let opts = SetOptions::with_ttl(Duration::from_secs(300));
+              db.insert("temp:sensor1", b"23.5", Some(opts))?;
 
-            Ok(())
-        }
-        ```
+              // Retrieve data
+              if let Some(coords) = db.get("location:paris")? {
+                  println!("Paris coordinates: {}", String::from_utf8_lossy(&coords));
+              }
 
-        ## Database Creation
+              Ok(())
+          }
+          ```
 
-        ### In-Memory Database
+          ## Database Creation
 
-        ```rust
-        let db = SpatioLite::memory()?;
-        ```
+          ### In-Memory Database
 
-        ### Persistent Database
+          ```rust
+          let db = SpatioLite::memory()?;
+          ```
 
-        ```rust
-        let db = SpatioLite::open("my_database.aof")?;
-        ```
+          ### Persistent Database
 
-        ## Next Steps
+          ```rust
+          let db = SpatioLite::open("my_database.aof")?;
+          ```
 
-        - [Basic Operations](./basic-operations.md)
-        - [Atomic Batches](./atomic-batches.md)
-        - [Configuration](./configuration.md)
-        EOF
+          ## Next Steps
 
-    - name: Build Rust documentation
-      run: |
-        cargo doc --no-deps --all-features --document-private-items
+          - [Basic Operations](./basic-operations.md)
+          - [Atomic Batches](./atomic-batches.md)
+          - [Configuration](./configuration.md)
+          EOF
 
-    - name: Copy Rust docs to book
-      run: |
-        mkdir -p docs/src/rustdoc
-        cp -r target/doc/* docs/src/rustdoc/ || true
+      - name: Build Rust documentation
+        run: |
+          cargo doc --no-deps --all-features --document-private-items
 
-    - name: Build mdbook
-      run: |
-        cd docs && mdbook build
+      - name: Copy Rust docs to book
+        run: |
+          mkdir -p docs/src/rustdoc
+          cp -r target/doc/* docs/src/rustdoc/ || true
 
-    - name: Setup Pages
-      if: github.ref == 'refs/heads/main'
-      uses: actions/configure-pages@v4
+      - name: Build mdbook
+        run: |
+          cd docs && mdbook build
 
-    - name: Upload documentation artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: documentation
-        path: |
-          docs/book/
-          target/doc/
-        retention-days: 30
+      - name: Setup Pages
+        if: github.ref == 'refs/heads/main'
+        uses: actions/configure-pages@v4
 
-    - name: Upload to GitHub Pages
-      if: github.ref == 'refs/heads/main'
-      uses: actions/upload-pages-artifact@v3
-      with:
-        path: docs/book
+      - name: Upload documentation artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation
+          path: |
+            docs/book/
+            target/doc/
+          retention-days: 30
+
+      - name: Upload to GitHub Pages
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/book
 
   deploy:
     name: Deploy Documentation
@@ -333,9 +332,9 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
-    - name: Deploy to GitHub Pages
-      id: deployment
-      uses: actions/deploy-pages@v4
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
 
   check-links:
     name: Check Documentation Links
@@ -343,113 +342,113 @@ jobs:
     if: github.event_name == 'pull_request'
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Install link checker
-      run: |
-        curl -L https://github.com/tcort/markdown-link-check/releases/download/v3.11.2/markdown-link-check-linux-amd64.tar.gz | tar xz
-        sudo mv markdown-link-check /usr/local/bin/
+      - name: Install link checker
+        run: |
+          curl -L https://github.com/tcort/markdown-link-check/releases/download/v3.11.2/markdown-link-check-linux-amd64.tar.gz | tar xz
+          sudo mv markdown-link-check /usr/local/bin/
 
-    - name: Check README links
-      run: |
-        if [ -f "README.md" ]; then
-          markdown-link-check README.md --config .github/mlc_config.json || true
-        fi
+      - name: Check README links
+        run: |
+          if [ -f "README.md" ]; then
+            markdown-link-check README.md --config .github/mlc_config.json || true
+          fi
 
-    - name: Check documentation links
-      run: |
-        find docs -name "*.md" -exec markdown-link-check {} \; || true
+      - name: Check documentation links
+        run: |
+          find docs -name "*.md" -exec markdown-link-check {} \; || true
 
   validate-examples:
     name: Validate Documentation Examples
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
 
-    - name: Cache cargo
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: examples-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: examples-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-    - name: Extract and test code examples
-      run: |
-        # Create a temporary project to test examples
-        mkdir -p /tmp/doc_examples
-        cd /tmp/doc_examples
+      - name: Extract and test code examples
+        run: |
+          # Create a temporary project to test examples
+          mkdir -p /tmp/doc_examples
+          cd /tmp/doc_examples
 
-        cargo init --name doc_examples
-        echo 'spatio_lite = { path = "'$GITHUB_WORKSPACE'" }' >> Cargo.toml
+          cargo init --name doc_examples
+          echo 'spatio_lite = { path = "'$GITHUB_WORKSPACE'" }' >> Cargo.toml
 
-        # Extract code blocks from documentation
-        find $GITHUB_WORKSPACE -name "*.md" -exec grep -l "```rust" {} \; | while read file; do
-          echo "Checking examples in $file"
-          # This is a simplified check - in practice you'd want more sophisticated extraction
-        done
+          # Extract code blocks from documentation
+          find $GITHUB_WORKSPACE -name "*.md" -exec grep -l "```rust" {} \; | while read file; do
+            echo "Checking examples in $file"
+            # This is a simplified check - in practice you'd want more sophisticated extraction
+          done
 
   spellcheck:
     name: Spell Check Documentation
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Install cspell
-      run: npm install -g cspell
+      - name: Install cspell
+        run: npm install -g cspell
 
-    - name: Create cspell config
-      run: |
-        cat > .cspell.json << 'EOF'
-        {
-          "version": "0.2",
-          "language": "en",
-          "words": [
-            "spatio",
-            "SpatioLite",
-            "geospatial",
-            "rtree",
-            "btree",
-            "impl",
-            "struct",
-            "enum",
-            "TTL",
-            "AOF",
-            "UAV",
-            "IoT",
-            "crate",
-            "crates",
-            "rustc",
-            "rustdoc",
-            "mdbook"
-          ],
-          "flagWords": [],
-          "ignorePaths": [
-            "target/**",
-            ".git/**",
-            "Cargo.lock"
-          ],
-          "overrides": [
-            {
-              "filename": "**/*.rs",
-              "caseSensitive": false
-            }
-          ]
-        }
-        EOF
+      - name: Create cspell config
+        run: |
+          cat > .cspell.json << 'EOF'
+          {
+            "version": "0.2",
+            "language": "en",
+            "words": [
+              "spatio",
+              "SpatioLite",
+              "geospatial",
+              "rtree",
+              "btree",
+              "impl",
+              "struct",
+              "enum",
+              "TTL",
+              "AOF",
+              "UAV",
+              "IoT",
+              "crate",
+              "crates",
+              "rustc",
+              "rustdoc",
+              "mdbook"
+            ],
+            "flagWords": [],
+            "ignorePaths": [
+              "target/**",
+              ".git/**",
+              "Cargo.lock"
+            ],
+            "overrides": [
+              {
+                "filename": "**/*.rs",
+                "caseSensitive": false
+              }
+            ]
+          }
+          EOF
 
-    - name: Run spell check
-      run: |
-        cspell "**/*.md" "**/*.rs" || echo "Spell check completed with suggestions"
+      - name: Run spell check
+        run: |
+          cspell "**/*.md" "**/*.rs" || echo "Spell check completed with suggestions"
 
   accessibility:
     name: Documentation Accessibility Check
@@ -457,24 +456,24 @@ jobs:
     needs: docs
 
     steps:
-    - name: Download documentation
-      uses: actions/download-artifact@v4
-      with:
-        name: documentation
-        path: docs-build
+      - name: Download documentation
+        uses: actions/download-artifact@v4
+        with:
+          name: documentation
+          path: docs-build
 
-    - name: Install axe-core
-      run: npm install -g @axe-core/cli
+      - name: Install axe-core
+        run: npm install -g @axe-core/cli
 
-    - name: Check accessibility
-      run: |
-        cd docs-build
-        # Start a simple HTTP server
-        python3 -m http.server 8080 &
-        sleep 2
+      - name: Check accessibility
+        run: |
+          cd docs-build
+          # Start a simple HTTP server
+          python3 -m http.server 8080 &
+          sleep 2
 
-        # Run accessibility checks
-        axe http://localhost:8080 --exit || echo "Accessibility check completed"
+          # Run accessibility checks
+          axe http://localhost:8080 --exit || echo "Accessibility check completed"
 
   summary:
     name: Documentation Summary
@@ -483,37 +482,37 @@ jobs:
     if: always()
 
     steps:
-    - name: Generate summary
-      run: |
-        echo "# Documentation Build Summary" > doc_summary.md
-        echo "Generated on: $(date)" >> doc_summary.md
-        echo "" >> doc_summary.md
-        echo "## Build Results" >> doc_summary.md
-        echo "- Documentation Build: ${{ needs.docs.result }}" >> doc_summary.md
-        echo "- Link Check: ${{ needs.check-links.result }}" >> doc_summary.md
-        echo "- Example Validation: ${{ needs.validate-examples.result }}" >> doc_summary.md
-        echo "- Spell Check: ${{ needs.spellcheck.result }}" >> doc_summary.md
-        echo "" >> doc_summary.md
+      - name: Generate summary
+        run: |
+          echo "# Documentation Build Summary" > doc_summary.md
+          echo "Generated on: $(date)" >> doc_summary.md
+          echo "" >> doc_summary.md
+          echo "## Build Results" >> doc_summary.md
+          echo "- Documentation Build: ${{ needs.docs.result }}" >> doc_summary.md
+          echo "- Link Check: ${{ needs.check-links.result }}" >> doc_summary.md
+          echo "- Example Validation: ${{ needs.validate-examples.result }}" >> doc_summary.md
+          echo "- Spell Check: ${{ needs.spellcheck.result }}" >> doc_summary.md
+          echo "" >> doc_summary.md
 
-        if [[ "${{ needs.docs.result }}" == "success" ]]; then
-          echo "✅ Documentation built successfully" >> doc_summary.md
-          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            echo "📖 Documentation deployed to: https://${{ github.repository_owner }}.github.io/SpatioLite/" >> doc_summary.md
+          if [[ "${{ needs.docs.result }}" == "success" ]]; then
+            echo "✅ Documentation built successfully" >> doc_summary.md
+            if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+              echo "📖 Documentation deployed to: https://${{ github.repository_owner }}.github.io/SpatioLite/" >> doc_summary.md
+            fi
+          else
+            echo "❌ Documentation build failed" >> doc_summary.md
           fi
-        else
-          echo "❌ Documentation build failed" >> doc_summary.md
-        fi
 
-    - name: Upload summary
-      uses: actions/upload-artifact@v4
-      with:
-        name: documentation-summary
-        path: doc_summary.md
-        retention-days: 30
+      - name: Upload summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation-summary
+          path: doc_summary.md
+          retention-days: 30
 
-    - name: Comment on PR
-      if: github.event_name == 'pull_request'
-      uses: thollander/actions-comment-pull-request@v2
-      with:
-        filePath: doc_summary.md
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: thollander/actions-comment-pull-request@v2
+        with:
+          filePath: doc_summary.md
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

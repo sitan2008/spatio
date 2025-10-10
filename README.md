@@ -11,10 +11,11 @@
 ## 🚀 Features
 
 - **🧠 In-Memory Performance**: Fast reads and writes with optional persistence
-- **🌍 Spatial Indexing**: Multi-dimensional R-tree indexing for up to 20 dimensions
+- **🌍 Spatial Indexing**: Geohash, S2 cells, and R-tree indexing for geospatial data
 - **⏰ Time-to-Live (TTL)**: Built-in expiration for temporal data
 - **🔒 Thread-Safe**: Concurrent operations with atomic batches
-- **💾 Persistent Storage**: Append-only file (AOF) format for durability
+- **💾 Persistent Storage**: Append-only file (AOF) format with replay support
+- **📍 Geo-Spatial Features**: Point storage, trajectory tracking, and spatial queries
 - **🔧 Embeddable**: Simple API that integrates easily into any Rust application
 
 ## 📦 Installation
@@ -29,19 +30,19 @@ spatio_lite = "0.1"
 ## 🏃‍♂️ Quick Start
 
 ```rust
-use spatio_lite::{SpatioLite, SetOptions};
+use spatio_lite::{Point, SetOptions, SpatioLite};
 use std::time::Duration;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create an in-memory database
     let db = SpatioLite::memory()?;
 
-    // Single atomic operations
-    db.insert("drone:001", b"lat:40.7128,lon:-74.0060,alt:100", None)?;
+    // Spatial point operations
+    let nyc = Point::new(40.7128, -74.0060);
+    db.insert_point("location:nyc", &nyc, None)?;
 
-    // Get the data
-    let location = db.get("drone:001")?.unwrap();
-    println!("Location: {}", String::from_utf8_lossy(&location));
+    // Insert with geohash indexing for spatial queries
+    db.insert_point_with_geohash("cities", &nyc, 8, b"New York City", None)?;
 
     // Atomic batch operations
     db.atomic(|batch| {
@@ -51,11 +52,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Ok(())
     })?;
 
-    // TTL support
+    // TTL support for temporary data
     let opts = SetOptions::with_ttl(Duration::from_secs(300));
     db.insert("temp:reading", b"sensor_data", Some(opts))?;
 
-    // Persistent database
+    // Trajectory tracking
+    let trajectory = vec![
+        (Point::new(40.7128, -74.0060), 1640995200),
+        (Point::new(40.7150, -74.0040), 1640995230),
+        (Point::new(40.7172, -74.0020), 1640995260),
+    ];
+    db.insert_trajectory("drone:001", &trajectory, None)?;
+
+    // Spatial queries
+    let nearby = db.find_nearest_neighbors("cities", &nyc, 10000.0, 10)?;
+    println!("Found {} nearby cities", nearby.len());
+
+    // Persistent database with AOF replay
     let persistent_db = SpatioLite::open("my_data.aof")?;
     persistent_db.insert("persistent:key", b"persistent_value", None)?;
     persistent_db.sync()?; // Force sync to disk
@@ -70,24 +83,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 Store sensor readings with location and timestamp information:
 
 ```rust
-// Store temperature sensor data with coordinates
-db.insert("sensor:temp:001", b"lat:40.7128,lon:-74.0060,temp:22.5,ts:1640995200", None)?;
+// Store temperature sensor with spatial indexing
+let sensor_location = Point::new(40.7128, -74.0060);
+db.insert_point_with_geohash("sensors", &sensor_location, 8, b"temp:22.5,humidity:65", None)?;
 
-// Query nearby sensors
-// TODO: Spatial queries coming soon
+// Find nearby sensors within 1km
+let nearby_sensors = db.find_nearest_neighbors("sensors", &sensor_location, 1000.0, 10)?;
 ```
 
 ### Vehicle Tracking
 Track vehicles, drones, or any moving objects:
 
 ```rust
-// UAV position tracking
-db.atomic(|batch| {
-    batch.insert("uav:alpha:pos", b"40.7128,-74.0060,100", None)?;
-    batch.insert("uav:alpha:heading", b"245.7", None)?;
-    batch.insert("uav:alpha:speed", b"45.2", None)?;
-    Ok(())
-})?;
+// UAV trajectory tracking with timestamps
+let trajectory = vec![
+    (Point::new(40.7128, -74.0060), 1640995200), // Start position
+    (Point::new(40.7150, -74.0040), 1640995230), // 30 seconds later
+    (Point::new(40.7172, -74.0020), 1640995260), // 1 minute later
+];
+db.insert_trajectory("uav:alpha", &trajectory, None)?;
+
+// Query trajectory between timestamps
+let path = db.query_trajectory("uav:alpha", 1640995200, 1640995260)?;
 ```
 
 ### Real-time Analytics
@@ -161,29 +178,33 @@ SpatioLite is currently in **early development** (v0.1.x). The core functionalit
 - [x] In-memory key-value storage
 - [x] Atomic operations and batches
 - [x] TTL/expiration support
-- [x] AOF persistence format
-- [x] Basic spatial indexing framework
+- [x] AOF persistence with replay
+- [x] Spatial point operations
+- [x] Geohash and S2 cell indexing
+- [x] Trajectory tracking and queries
+- [x] Nearest neighbor search
 - [x] Thread-safe operations
 - [x] Comprehensive test suite
+- [x] Benchmarking suite
 
 ### 🚧 In Progress
-- [ ] Index creation API
-- [ ] AOF loading/replay
-- [ ] Auto-shrinking/compaction
+- [ ] Advanced spatial queries (intersects, within)
+- [ ] Index management API
+- [ ] AOF auto-compaction
 - [ ] Performance optimizations
 
 ### 📋 Planned
-- [ ] Geo-coordinate helpers
-- [ ] S2/Geohash integration
-- [ ] Compression support
+- [ ] Complex geometry support
+- [ ] Compression for AOF files
 - [ ] Backup/restore utilities
 - [ ] Monitoring and metrics
+- [ ] Query language (SpatioQL)
 
 ## 📖 Documentation
 
-- [API Documentation](Coming Soon)
-- [User Guide] (Coming Soon)
-- [Examples](examples/) (Coming Soon)
+- [API Documentation](https://docs.rs/spatio_lite) (Generated from code)
+- [Examples](src/main.rs) - Comprehensive spatial demo
+- [Benchmarks](benches/) - Performance testing suite
 
 ## 🤝 Contributing
 
@@ -193,11 +214,14 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 ```bash
 # Clone the repository
-git clone https://github.com/spatiolite/spatiolite.git
-cd spatiolite
+git clone https://github.com/pkvartsianyi/SpatioLite.git
+cd SpatioLite
 
-# Run tests
+# Run all tests
 cargo test
+
+# Run the spatial demo
+cargo run
 
 # Run benchmarks
 cargo bench
@@ -220,8 +244,8 @@ SpatioLite is inspired by:
 
 ## 📞 Contact
 
-- **Issues**: [GitHub Issues](https://github.com/pkvartsianyi/spatio-lite/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/pkvartsianyi/spatio-lite/discussions)
+- **Issues**: [GitHub Issues](https://github.com/pkvartsianyi/SpatioLite/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/pkvartsianyi/SpatioLite/discussions)
 
 ---
 

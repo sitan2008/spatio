@@ -7,9 +7,6 @@ edition = "2021"
 bytes = "1.5"
 geo = "0.31.0"
 geohash = "0.13.1"
-prost = "0.12"
-redb = "2.0.0"
-rumqttc = "0.24.0"
 rstar = "0.11.0"
 s2 = "0.0.13"
 smallvec = "1.11"
@@ -17,3 +14,8 @@ thiserror = "1.0"
 
 [dev-dependencies]
 tempfile = "3.8"
+criterion = "0.5"
+
+[[bench]]
+name = "spatial_benchmarks"
+harness = false

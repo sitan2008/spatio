@@ -61,7 +61,6 @@ fn test_ttl() {
 }
 
 #[test]
-#[ignore] // TODO: Enable when AOF loading is implemented
 fn test_persistence() {
     let temp_file = NamedTempFile::new().unwrap();
     let path = temp_file.path();

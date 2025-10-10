@@ -109,11 +109,15 @@ impl AtomicBatch {
         if let Some(ref mut aof_file) = db_inner.aof_file {
             for operation in &self.operations {
                 match operation {
-                    BatchOperation::Insert { key, value, opts } => {
+                    BatchOperation::Insert {
+                        key: _,
+                        value: _,
+                        opts: _,
+                    } => {
                         // TODO: Write insert operation to AOF
                         // aof_file.write_insert(key, value, opts)?;
                     }
-                    BatchOperation::Delete { key } => {
+                    BatchOperation::Delete { key: _ } => {
                         // TODO: Write delete operation to AOF
                         // aof_file.write_delete(key)?;
                     }
