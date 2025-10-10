@@ -479,7 +479,7 @@ fn test_edge_case_inputs() {
 
     // Test bearing calculation with very close points
     let bearing = point1.bearing_to(&point2);
-    assert!(bearing >= 0.0 && bearing < 360.0);
+    assert!((0.0..360.0).contains(&bearing));
 }
 
 #[test]

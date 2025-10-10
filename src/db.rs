@@ -37,6 +37,7 @@ pub(crate) struct DBInner {
     pub config: Config,
 
     /// Whether the database persists to disk
+    #[allow(dead_code)]
     pub persist: bool,
 
     /// Whether the database is closed
@@ -46,6 +47,7 @@ pub(crate) struct DBInner {
     pub stats: DbStats,
 
     /// Buffer for write operations
+    #[allow(dead_code)]
     pub write_buffer: Vec<u8>,
 
     /// Whether a shrink operation is in progress
@@ -208,6 +210,7 @@ impl DB {
     }
 
     /// Read-only access to the database
+    #[allow(dead_code)]
     pub(crate) fn view<F, R>(&self, f: F) -> Result<R>
     where
         F: FnOnce(&DBInner) -> Result<R>,
@@ -217,7 +220,7 @@ impl DB {
             return Err(SpatioLiteError::DatabaseClosed);
         }
 
-        f(&*inner)
+        f(&inner)
     }
 
     /// Close the database
@@ -430,7 +433,7 @@ impl DBInner {
         if let Some(expires_at) = item.expires_at {
             self.expirations
                 .entry(expires_at)
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(key.clone());
         }
 
@@ -482,16 +485,19 @@ impl DBInner {
     }
 
     /// Check if the database contains a key
+    #[allow(dead_code)]
     pub fn contains_key(&self, key: &Bytes) -> bool {
         self.keys.contains_key(key)
     }
 
     /// Get the number of keys in the database
+    #[allow(dead_code)]
     pub fn len(&self) -> usize {
         self.keys.len()
     }
 
     /// Check if the database is empty
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.keys.is_empty()
     }

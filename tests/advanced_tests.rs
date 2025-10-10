@@ -243,14 +243,14 @@ fn test_persistence_integrity() {
 
             // Regular key-value pairs
             db.insert(
-                &format!("persistent_key_{}", i),
-                &format!("value_{}", i).as_bytes(),
+                format!("persistent_key_{}", i),
+                format!("value_{}", i).as_bytes(),
                 None,
             )
             .unwrap();
 
             // Spatial points
-            db.insert_point(&format!("persistent_point_{}", i), &point, None)
+            db.insert_point(format!("persistent_point_{}", i), &point, None)
                 .unwrap();
 
             // Geohash data
@@ -258,7 +258,7 @@ fn test_persistence_integrity() {
                 "persistent_geohash",
                 &point,
                 8,
-                &format!("geohash_data_{}", i).as_bytes(),
+                format!("geohash_data_{}", i).as_bytes(),
                 None,
             )
             .unwrap();
@@ -296,13 +296,13 @@ fn test_coordinate_edge_cases() {
     let db = SpatioLite::memory().unwrap();
 
     // Test extreme coordinate values
-    let edge_cases = vec![
+    let edge_cases = [
         (90.0, 180.0),           // North pole, international date line
         (-90.0, -180.0),         // South pole, opposite date line
         (0.0, 0.0),              // Equator, prime meridian
         (89.99999, 179.99999),   // Near north pole
         (-89.99999, -179.99999), // Near south pole
-        (40.7128, -74.0060),     // NYC (normal case)
+        (40.7128, -74.0060),     // New York City
     ];
 
     for (i, (lat, lon)) in edge_cases.iter().enumerate() {
@@ -521,12 +521,12 @@ fn test_mixed_operation_patterns() {
             }
             5 => {
                 // Regular data retrieval
-                let key = format!("reference:location:{}", (i as i32).saturating_sub(100));
+                let key = format!("reference:location:{}", i.saturating_sub(100));
                 let _value = db.get(&key).unwrap();
             }
             6 => {
                 // Data cleanup
-                let old_key = format!("reference:location:{}", (i as i32).saturating_sub(500));
+                let old_key = format!("reference:location:{}", i.saturating_sub(500));
                 let _deleted = db.delete(&old_key).unwrap();
             }
             _ => unreachable!(),

@@ -475,7 +475,7 @@ mod tests {
                         geohash,
                         geohash.len()
                     );
-                    assert!(geohash.len() > 0);
+                    assert!(!geohash.is_empty());
                 }
                 Err(e) => {
                     println!("Precision {}: Error - {:?}", precision, e);
@@ -485,7 +485,7 @@ mod tests {
 
         // Test a known good precision
         let geohash = point.to_geohash(5).unwrap();
-        assert!(geohash.len() > 0);
+        assert!(!geohash.is_empty());
     }
 
     #[test]

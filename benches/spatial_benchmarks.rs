@@ -1,5 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use spatio_lite::{Point, SetOptions, SpatioLite};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 fn benchmark_basic_operations(c: &mut Criterion) {
@@ -68,18 +69,16 @@ fn benchmark_spatial_operations(c: &mut Criterion) {
 
     // Benchmark geohash insertion
     group.bench_function("geohash_insert", |b| {
+        static COUNTER: AtomicUsize = AtomicUsize::new(0);
         b.iter_with_setup(
             || {
                 // Setup: create unique coordinates for each iteration
-                static mut COUNTER: usize = 0;
-                unsafe {
-                    COUNTER += 1;
-                    let lat = 40.7128 + (COUNTER as f64 * 0.0001);
-                    let lon = -74.0060 + (COUNTER as f64 * 0.0001);
-                    let point = Point::new(lat, lon);
-                    let data = format!("data:{}", COUNTER);
-                    (point, data, COUNTER)
-                }
+                let counter = COUNTER.fetch_add(1, Ordering::Relaxed);
+                let lat = 40.7128 + (counter as f64 * 0.0001);
+                let lon = -74.0060 + (counter as f64 * 0.0001);
+                let point = Point::new(lat, lon);
+                let data = format!("data:{}", counter);
+                (point, data, counter)
             },
             |(point, data, _counter)| {
                 db.insert_point_with_geohash(
@@ -95,19 +94,18 @@ fn benchmark_spatial_operations(c: &mut Criterion) {
     });
 
     // Benchmark S2 cell insertion
+    // Benchmark spatial search with larger dataset
     group.bench_function("s2_insert", |b| {
+        static COUNTER: AtomicUsize = AtomicUsize::new(0);
         b.iter_with_setup(
             || {
                 // Setup: create unique coordinates for each iteration
-                static mut COUNTER: usize = 0;
-                unsafe {
-                    COUNTER += 1;
-                    let lat = 40.7128 + (COUNTER as f64 * 0.0001);
-                    let lon = -74.0060 + (COUNTER as f64 * 0.0001);
-                    let point = Point::new(lat, lon);
-                    let data = format!("data:{}", COUNTER);
-                    (point, data, COUNTER)
-                }
+                let counter = COUNTER.fetch_add(1, Ordering::Relaxed);
+                let lat = 40.7128 + (counter as f64 * 0.0001);
+                let lon = -74.0060 + (counter as f64 * 0.0001);
+                let point = Point::new(lat, lon);
+                let data = format!("data:{}", counter);
+                (point, data, counter)
             },
             |(point, data, _counter)| {
                 db.insert_point_with_s2(
@@ -155,28 +153,27 @@ fn benchmark_trajectory_operations(c: &mut Criterion) {
     let db = SpatioLite::memory().unwrap();
 
     // Benchmark trajectory insertion
-    group.bench_function("trajectory_insert_100_points", |b| {
+    group.bench_function("trajectory_insert", |b| {
+        static COUNTER: AtomicUsize = AtomicUsize::new(0);
         b.iter_with_setup(
             || {
-                static mut COUNTER: usize = 0;
-                unsafe {
-                    COUNTER += 1;
-                    let mut trajectory = Vec::new();
-                    let base_lat = 40.7128;
-                    let base_lon = -74.0060;
-                    let base_time = 1640995200u64 + (COUNTER as u64) * 1000;
+                // Setup: create unique trajectory for each iteration
+                let counter = COUNTER.fetch_add(1, Ordering::Relaxed);
+                let mut trajectory = Vec::new();
+                let base_lat = 40.7128;
+                let base_lon = -74.0060;
+                let base_time = 1640995200u64 + (counter as u64) * 1000;
 
-                    for i in 0..100 {
-                        let lat = base_lat + (i as f64 * 0.0001);
-                        let lon = base_lon + (i as f64 * 0.0001);
-                        let point = Point::new(lat, lon);
-                        let timestamp = base_time + (i as u64) * 10;
-                        trajectory.push((point, timestamp));
-                    }
-
-                    let object_id = format!("trajectory:{}", COUNTER);
-                    (object_id, trajectory)
+                for i in 0..100 {
+                    let lat = base_lat + (i as f64 * 0.0001);
+                    let lon = base_lon + (i as f64 * 0.0001);
+                    let point = Point::new(lat, lon);
+                    let timestamp = base_time + (i as u64) * 10;
+                    trajectory.push((point, timestamp));
                 }
+
+                let object_id = format!("trajectory:{}", counter);
+                (object_id, trajectory)
             },
             |(object_id, trajectory)| {
                 db.insert_trajectory(black_box(&object_id), black_box(&trajectory), None)

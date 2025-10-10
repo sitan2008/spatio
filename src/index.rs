@@ -19,9 +19,9 @@ impl RTreeObject for SpatialItem {
     fn envelope(&self) -> Self::Envelope {
         // Convert our multi-dimensional rect to 2D AABB for rstar
         // For higher dimensions, we'll use the first two dimensions
-        let min_x = self.rect.min.get(0).copied().unwrap_or(0.0);
+        let min_x = self.rect.min.first().copied().unwrap_or(0.0);
         let min_y = self.rect.min.get(1).copied().unwrap_or(0.0);
-        let max_x = self.rect.max.get(0).copied().unwrap_or(0.0);
+        let max_x = self.rect.max.first().copied().unwrap_or(0.0);
         let max_y = self.rect.max.get(1).copied().unwrap_or(0.0);
 
         AABB::from_corners([min_x, min_y], [max_x, max_y])
@@ -43,6 +43,7 @@ pub struct Index {
     /// R-tree storage (for spatial indexes)
     rtree: Option<RTree<SpatialItem>>,
     /// Custom comparison function for B-tree
+    #[allow(dead_code)]
     less_func: Option<Arc<LessFunc>>,
     /// Rectangle extraction function for R-tree
     rect_func: Option<Arc<RectFunc>>,
@@ -207,9 +208,9 @@ impl Index {
                 let mut results = Vec::new();
 
                 // Convert our Rect to AABB for rstar
-                let min_x = rect.min.get(0).copied().unwrap_or(0.0);
+                let min_x = rect.min.first().copied().unwrap_or(0.0);
                 let min_y = rect.min.get(1).copied().unwrap_or(0.0);
-                let max_x = rect.max.get(0).copied().unwrap_or(0.0);
+                let max_x = rect.max.first().copied().unwrap_or(0.0);
                 let max_y = rect.max.get(1).copied().unwrap_or(0.0);
 
                 let query_aabb = AABB::from_corners([min_x, min_y], [max_x, max_y]);

@@ -98,10 +98,12 @@ fn test_spatial_rect() {
 
 #[test]
 fn test_config() {
-    let mut config = Config::default();
-    config.sync_policy = SyncPolicy::Always;
-    config.auto_shrink_disabled = true;
-    config.max_dimensions = 3;
+    let config = Config {
+        sync_policy: SyncPolicy::Always,
+        auto_shrink_disabled: true,
+        max_dimensions: 3,
+        ..Default::default()
+    };
 
     let db = SpatioLite::memory().unwrap();
     db.set_config(config.clone()).unwrap();

@@ -57,21 +57,12 @@ impl Default for Config {
 }
 
 /// Options for setting values
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct SetOptions {
     /// Time-to-live for this item
     pub ttl: Option<Duration>,
     /// Absolute expiration time
     pub expires_at: Option<SystemTime>,
-}
-
-impl Default for SetOptions {
-    fn default() -> Self {
-        Self {
-            ttl: None,
-            expires_at: None,
-        }
-    }
 }
 
 impl SetOptions {
@@ -91,21 +82,12 @@ impl SetOptions {
 }
 
 /// Options for creating indexes
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct IndexOptions {
     /// Case insensitive key matching for patterns
     pub case_insensitive: bool,
     /// Whether this is a unique index
     pub unique: bool,
-}
-
-impl Default for IndexOptions {
-    fn default() -> Self {
-        Self {
-            case_insensitive: false,
-            unique: false,
-        }
-    }
 }
 
 /// Internal representation of a database item
@@ -219,8 +201,8 @@ impl Rect {
             return false;
         }
 
-        for i in 0..self.dimensions() {
-            if point[i] < self.min[i] || point[i] > self.max[i] {
+        for (i, &point_val) in point.iter().enumerate().take(self.dimensions()) {
+            if point_val < self.min[i] || point_val > self.max[i] {
                 return false;
             }
         }
@@ -232,8 +214,14 @@ impl Rect {
             return false;
         }
 
-        for i in 0..self.dimensions() {
-            if self.max[i] < other.min[i] || self.min[i] > other.max[i] {
+        for (i, (&self_max, &self_min)) in self
+            .max
+            .iter()
+            .zip(self.min.iter())
+            .enumerate()
+            .take(self.dimensions())
+        {
+            if self_max < other.min[i] || self_min > other.max[i] {
                 return false;
             }
         }
@@ -272,7 +260,7 @@ impl Default for IsolationLevel {
 }
 
 /// Statistics about the database
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct DbStats {
     /// Number of keys in the database
     pub key_count: u64,
@@ -286,17 +274,4 @@ pub struct DbStats {
     pub flush_count: u64,
     /// Number of shrink operations performed
     pub shrink_count: u64,
-}
-
-impl Default for DbStats {
-    fn default() -> Self {
-        Self {
-            key_count: 0,
-            index_count: 0,
-            aof_size: 0,
-            expired_count: 0,
-            flush_count: 0,
-            shrink_count: 0,
-        }
-    }
 }
