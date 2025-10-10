@@ -32,7 +32,7 @@
 //!
 //! // Atomic batch operations
 //! db.atomic(|batch| {
-//!     batch.insert("sensor:temp", b"22.5°C", None)?;
+//!     batch.insert("sensor:temp", b"22.5C", None)?;
 //!     batch.insert("sensor:humidity", b"65%", None)?;
 //!     Ok(())
 //! })?;
@@ -54,7 +54,7 @@ pub mod error;
 pub mod index;
 pub mod persistence;
 pub mod spatial;
-pub mod spatial_db;
+
 pub mod types;
 
 // Re-export core database types
@@ -65,13 +65,15 @@ pub use error::{Result, SpatioLiteError};
 pub use spatial::{
     BoundingBox, CoordinateSystem, GeohashUtils, Point, S2Utils, SpatialAnalysis, SpatialKey,
 };
-pub use spatial_db::SpatialQueryType;
 
 // Re-export batch and transaction types
 pub use batch::AtomicBatch;
 
 // Re-export configuration and option types
 pub use types::{Config, DbStats, IndexOptions, Rect, SetOptions, SyncPolicy};
+
+// Re-export spatial types from db module
+pub use db::SpatialStats;
 
 // Re-export persistence types for advanced usage
 pub use persistence::{AOFCommand, AOFFile};

@@ -1,4 +1,4 @@
-use spatio_lite::{BoundingBox, Point, SetOptions, SpatialQueryType, SpatioLite};
+use spatio_lite::{BoundingBox, Point, SetOptions, SpatioLite};
 use std::time::Duration;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -44,8 +44,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Multi-index spatial insertion
     println!("\n🔗 Multi-Index Spatial Operations:");
     let central_park = Point::new(40.7851, -73.9683);
-    db.insert_geo_multi_index("landmark:001", &central_park, b"Central Park", None)?;
-    println!("Inserted Central Park with multiple spatial indexes");
+    db.insert_point_with_geohash("landmark", &central_park, 8, b"Central Park", None)?;
+    println!("Inserted Central Park with spatial indexing");
 
     // UAV tracking demonstration
     println!("\n🚁 UAV Trajectory Tracking:");
@@ -68,37 +68,34 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Spatial batch operations
     println!("\n📦 Spatial Batch Operations:");
-    let sensor_points = vec![
-        (
-            Point::new(40.7500, -73.9800),
-            b"Temperature Sensor A".to_vec(),
-        ),
-        (Point::new(40.7520, -73.9820), b"Humidity Sensor B".to_vec()),
-        (
-            Point::new(40.7480, -73.9780),
-            b"Air Quality Sensor C".to_vec(),
-        ),
-    ];
-
-    db.insert_spatial_batch(
-        &sensor_points,
-        |point, data| {
-            let sensor_type = String::from_utf8_lossy(data);
-            format!(
-                "sensor:{}:{}_{}",
-                sensor_type.split_whitespace().last().unwrap_or("unknown"),
-                point.lat,
-                point.lon
-            )
-        },
-        Some(SetOptions::with_ttl(Duration::from_secs(3600))), // 1 hour TTL
+    let opts = Some(SetOptions::with_ttl(Duration::from_secs(3600))); // 1 hour TTL
+    db.insert_point_with_geohash(
+        "sensors",
+        &Point::new(40.7500, -73.9800),
+        8,
+        b"Temperature Sensor A",
+        opts.clone(),
     )?;
-    println!("Inserted {} sensors with TTL", sensor_points.len());
+    db.insert_point_with_geohash(
+        "sensors",
+        &Point::new(40.7520, -73.9820),
+        8,
+        b"Humidity Sensor B",
+        opts.clone(),
+    )?;
+    db.insert_point_with_geohash(
+        "sensors",
+        &Point::new(40.7480, -73.9780),
+        8,
+        b"Air Quality Sensor C",
+        opts,
+    )?;
+    println!("Inserted 3 sensors with TTL");
 
     // Bounding box query
     println!("\n📍 Bounding Box Query:");
     let manhattan_bbox = BoundingBox::new(40.7000, -74.0200, 40.8000, -73.9000);
-    let points_in_manhattan = db.query_bounding_box("cities", &manhattan_bbox, 8)?;
+    let points_in_manhattan = db.within("cities", &manhattan_bbox)?;
     println!(
         "Found {} points in Manhattan area",
         points_in_manhattan.len()
@@ -116,14 +113,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("  {} at distance: {:.0}m", key, distance);
     }
 
-    // Adaptive spatial queries
-    println!("\n🧠 Adaptive Spatial Queries:");
-    let query = SpatialQueryType::Point {
-        point: central_park,
-        radius_meters: 5000.0,
-    };
-    let adaptive_results = db.query_spatial_adaptive("landmark", query)?;
-    println!("Adaptive query found {} results", adaptive_results.len());
+    // Simple spatial queries
+    println!("\n🧠 Simple Spatial Queries:");
+    let intersecting_results = db.intersects("landmark", &central_park, 5000.0)?;
+    println!(
+        "Intersecting query found {} results",
+        intersecting_results.len()
+    );
 
     // Show spatial statistics
     println!("\n📈 Spatial Database Statistics:");

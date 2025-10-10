@@ -396,13 +396,57 @@ fn pattern_match(pattern: &str, text: &str, case_insensitive: bool) -> bool {
         text.to_string()
     };
 
-    // Simple implementation - just check if pattern is "*" (match all) or exact match
-    // TODO: Implement full glob pattern matching with wildcards
+    // Implement glob pattern matching with wildcards
     if pattern == "*" {
-        true
-    } else {
-        pattern == text
+        return true;
     }
+
+    glob_match(&pattern, &text)
+}
+
+/// Simple glob pattern matching implementation
+fn glob_match(pattern: &str, text: &str) -> bool {
+    let pattern_chars: Vec<char> = pattern.chars().collect();
+    let text_chars: Vec<char> = text.chars().collect();
+
+    fn match_recursive(pattern: &[char], text: &[char], p_idx: usize, t_idx: usize) -> bool {
+        // End of pattern
+        if p_idx >= pattern.len() {
+            return t_idx >= text.len();
+        }
+
+        // End of text but pattern remains
+        if t_idx >= text.len() {
+            // Only valid if remaining pattern is all '*'
+            return pattern[p_idx..].iter().all(|&c| c == '*');
+        }
+
+        match pattern[p_idx] {
+            '*' => {
+                // Try matching zero or more characters
+                for i in t_idx..=text.len() {
+                    if match_recursive(pattern, text, p_idx + 1, i) {
+                        return true;
+                    }
+                }
+                false
+            }
+            '?' => {
+                // Match exactly one character
+                match_recursive(pattern, text, p_idx + 1, t_idx + 1)
+            }
+            c => {
+                // Match exact character
+                if text[t_idx] == c {
+                    match_recursive(pattern, text, p_idx + 1, t_idx + 1)
+                } else {
+                    false
+                }
+            }
+        }
+    }
+
+    match_recursive(&pattern_chars, &text_chars, 0, 0)
 }
 
 #[cfg(test)]
