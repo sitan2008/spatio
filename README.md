@@ -121,6 +121,36 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
+## Examples
+
+SpatioLite includes several focused example programs demonstrating different use cases:
+
+### Getting Started
+```bash
+cargo run --example getting_started
+```
+A gentle introduction covering basic operations, spatial indexing, and TTL features.
+
+### Spatial Queries
+```bash
+cargo run --example spatial_queries
+```
+Advanced spatial queries including distance-based searches, bounding boxes, and geohash analysis.
+
+### Trajectory Tracking
+```bash
+cargo run --example trajectory_tracking
+```
+Vehicle tracking, drone paths, pedestrian routes, geofencing, and real-time position updates.
+
+### Comprehensive Demo
+```bash
+cargo run --example comprehensive_demo
+```
+Complete feature showcase including all geometry types, spatial operations, and analysis tools.
+
+All examples are self-contained and can be run independently to explore different aspects of SpatioLite's capabilities.
+
 ## Use Cases
 
 ### IoT & Sensor Networks
@@ -301,7 +331,7 @@ SpatioLite is currently in **early development** (v0.1.x). The core functionalit
 ## Documentation
 
 - [API Documentation](https://docs.rs/spatio_lite) (Generated from code)
-- [Examples](src/main.rs) - Comprehensive spatial demo
+- [Examples](examples/) - Multiple focused examples and comprehensive demos
 - [Benchmarks](benches/) - Performance testing suite
 - [Assets](assets/) - Logo and branding materials
 
