@@ -1,10 +1,104 @@
+//! Geometry types and operations for SpatioLite.
+//!
+//! This module provides comprehensive support for geometric objects including
+//! points, lines, polygons, and complex geometries. It offers:
+//!
+//! - **Coordinate System**: 2D and 3D coordinate support
+//! - **Geometry Types**: Points, LineStrings, Polygons with holes
+//! - **Geometric Operations**: Area, length, buffer, distance calculations
+//! - **Serialization**: WKT (Well-Known Text) import/export
+//! - **Spatial Analysis**: Contains, intersects, within operations
+//!
+//! # Supported Geometry Types
+//!
+//! - **Point**: Single coordinate location
+//! - **LineString**: Connected sequence of coordinates
+//! - **Polygon**: Closed area with optional holes
+//! - **Multi-geometries**: Collections of the above types
+//!
+//! # Examples
+//!
+//! ## Creating Basic Geometries
+//!
+//! ```rust
+//! use spatio_lite::geometry::{Coordinate, LineString, Polygon, LinearRing};
+//!
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! // Create coordinates
+//! let coord1 = Coordinate::new(-73.9857, 40.7484); // Times Square
+//! let coord2 = Coordinate::new(-73.9733, 40.7644); // Central Park SW
+//! let coord3 = Coordinate::new(-73.9500, 40.7644); // Central Park SE
+//!
+//! // Create a line string (path)
+//! let path = LineString::new(vec![coord1, coord2, coord3])?;
+//! println!("Path length: {:.2} degrees", path.length());
+//!
+//! // Create a polygon (area)
+//! let square_coords = vec![
+//!     Coordinate::new(0.0, 0.0),
+//!     Coordinate::new(1.0, 0.0),
+//!     Coordinate::new(1.0, 1.0),
+//!     Coordinate::new(0.0, 1.0),
+//!     Coordinate::new(0.0, 0.0), // Close the ring
+//! ];
+//! let square_ring = LinearRing::new(square_coords)?;
+//! let square = Polygon::new(square_ring);
+//! println!("Square area: {:.2}", square.area());
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## Geometric Operations
+//!
+//! ```rust
+//! use spatio_lite::geometry::{Coordinate, GeometryOps};
+//!
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! // Create a circular buffer around a point
+//! let center = Coordinate::new(-73.9857, 40.7484);
+//! let buffer = GeometryOps::buffer_point(&center, 0.01, 16)?; // ~1km radius
+//!
+//! // Check if a point is inside the buffer
+//! let test_point = Coordinate::new(-73.9850, 40.7480);
+//! let is_inside = buffer.contains_point(&test_point);
+//! println!("Point is inside buffer: {}", is_inside);
+//! # Ok(())
+//! # }
+//! ```
+
 use crate::error::{Result, SpatioLiteError};
 use crate::spatial::Point;
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-/// A coordinate representing a 2D or 3D point
+/// A coordinate representing a 2D or 3D point in space.
+///
+/// Coordinates are the fundamental building blocks of all geometric objects.
+/// They support both 2D (x, y) and 3D (x, y, z) representations, with
+/// the z-coordinate being optional.
+///
+/// # Coordinate System
+///
+/// - **X-axis**: Typically longitude in geographic systems (East-West)
+/// - **Y-axis**: Typically latitude in geographic systems (North-South)
+/// - **Z-axis**: Elevation or height (optional)
+///
+/// # Examples
+///
+/// ```rust
+/// use spatio_lite::geometry::Coordinate;
+///
+/// // 2D coordinate (longitude, latitude)
+/// let empire_state = Coordinate::new(-73.9857, 40.7484);
+///
+/// // 3D coordinate with elevation
+/// let mountain_peak = Coordinate::new_3d(-105.0178, 39.7392, 1655.0); // Denver with elevation
+///
+/// // Distance calculation
+/// let distance = empire_state.distance_to(&mountain_peak);
+/// println!("Distance: {:.2} coordinate units", distance);
+/// ```
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Coordinate {
     pub x: f64,
@@ -13,22 +107,125 @@ pub struct Coordinate {
 }
 
 impl Coordinate {
+    /// Creates a new 2D coordinate.
+    ///
+    /// # Arguments
+    ///
+    /// * `x` - X-coordinate (typically longitude)
+    /// * `y` - Y-coordinate (typically latitude)
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use spatio_lite::geometry::Coordinate;
+    ///
+    /// let coord = Coordinate::new(-73.9857, 40.7484);
+    /// assert_eq!(coord.x, -73.9857);
+    /// assert_eq!(coord.y, 40.7484);
+    /// assert!(!coord.is_3d());
+    /// ```
     pub fn new(x: f64, y: f64) -> Self {
         Self { x, y, z: None }
     }
 
+    /// Creates a new 3D coordinate with elevation.
+    ///
+    /// # Arguments
+    ///
+    /// * `x` - X-coordinate (typically longitude)
+    /// * `y` - Y-coordinate (typically latitude)
+    /// * `z` - Z-coordinate (elevation or height)
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use spatio_lite::geometry::Coordinate;
+    ///
+    /// let mountain = Coordinate::new_3d(-105.0178, 39.7392, 1655.0);
+    /// assert_eq!(mountain.z, Some(1655.0));
+    /// assert!(mountain.is_3d());
+    /// ```
     pub fn new_3d(x: f64, y: f64, z: f64) -> Self {
         Self { x, y, z: Some(z) }
     }
 
+    /// Creates a coordinate from a spatial Point.
+    ///
+    /// Converts a `Point` (lat, lon) to a `Coordinate` (x, y), swapping
+    /// the order to follow the conventional (x=longitude, y=latitude) pattern.
+    ///
+    /// # Arguments
+    ///
+    /// * `point` - The Point to convert
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use spatio_lite::{Point, geometry::Coordinate};
+    ///
+    /// let point = Point::new(40.7484, -73.9857); // lat, lon
+    /// let coord = Coordinate::from_point(&point);
+    /// assert_eq!(coord.x, -73.9857); // longitude
+    /// assert_eq!(coord.y, 40.7484);  // latitude
+    /// ```
     pub fn from_point(point: &Point) -> Self {
         Self::new(point.lon, point.lat)
     }
 
+    /// Converts this coordinate to a spatial Point.
+    ///
+    /// Creates a `Point` (lat, lon) from this `Coordinate` (x, y), swapping
+    /// the order and ignoring any z-coordinate.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use spatio_lite::geometry::Coordinate;
+    ///
+    /// let coord = Coordinate::new(-73.9857, 40.7484);
+    /// let point = coord.to_point();
+    /// assert_eq!(point.lat, 40.7484);  // y becomes lat
+    /// assert_eq!(point.lon, -73.9857); // x becomes lon
+    /// ```
     pub fn to_point(&self) -> Point {
         Point::new(self.y, self.x) // lat, lon
     }
 
+    /// Calculates the Euclidean distance to another coordinate.
+    ///
+    /// For 2D coordinates, uses the standard distance formula.
+    /// For 3D coordinates, includes the z-component in the calculation.
+    /// If one coordinate is 2D and the other is 3D, the z-component is ignored.
+    ///
+    /// # Arguments
+    ///
+    /// * `other` - The destination coordinate
+    ///
+    /// # Returns
+    ///
+    /// Distance in the same units as the coordinates
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use spatio_lite::geometry::Coordinate;
+    ///
+    /// let origin = Coordinate::new(0.0, 0.0);
+    /// let point = Coordinate::new(3.0, 4.0);
+    /// let distance = origin.distance_to(&point);
+    /// assert_eq!(distance, 5.0); // 3-4-5 triangle
+    ///
+    /// // 3D distance
+    /// let point_3d = Coordinate::new_3d(3.0, 4.0, 12.0);
+    /// let distance_3d = origin.distance_to(&point_3d);
+    /// assert_eq!(distance_3d, 5.0); // z ignored for 2D-3D comparison
+    /// ```
+    ///
+    /// # Note
+    ///
+    /// This calculates straight-line distance in coordinate space.
+    /// For geographic coordinates, use `Point::distance_to()` for
+    /// great-circle distance calculations.
     pub fn distance_to(&self, other: &Coordinate) -> f64 {
         let dx = self.x - other.x;
         let dy = self.y - other.y;
@@ -42,6 +239,19 @@ impl Coordinate {
         }
     }
 
+    /// Returns whether this coordinate has a z-component (3D).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use spatio_lite::geometry::Coordinate;
+    ///
+    /// let coord_2d = Coordinate::new(1.0, 2.0);
+    /// let coord_3d = Coordinate::new_3d(1.0, 2.0, 3.0);
+    ///
+    /// assert!(!coord_2d.is_3d());
+    /// assert!(coord_3d.is_3d());
+    /// ```
     pub fn is_3d(&self) -> bool {
         self.z.is_some()
     }

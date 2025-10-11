@@ -1,1 +1,40 @@
-/target
+# Rust build artifacts
+/target/
+Cargo.lock
+
+# Database files
+*.aof
+*.db
+*.sqlite
+*.sqlite3
+
+# Test artifacts
+test_*.aof
+test_*.db
+my_*.aof
+my_*.db
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Documentation build
+/docs/book/
+/docs/rustdoc/
+
+# Benchmark results
+/benches/results/
+criterion/
+
+# Local development
+.env
+.env.local

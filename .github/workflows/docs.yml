@@ -1,10 +1,6 @@
 name: Documentation
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
   release:
     types: [published]
   workflow_dispatch:
@@ -282,7 +278,7 @@ jobs:
           ### Persistent Database
 
           ```rust
-          let db = SpatioLite::open("my_database.aof")?;
+          let db = SpatioLite::open("my_database.db")?;
           ```
 
           ## Next Steps
@@ -294,7 +290,18 @@ jobs:
 
       - name: Build Rust documentation
         run: |
-          cargo doc --no-deps --all-features --document-private-items
+          # Generate comprehensive API documentation
+          RUSTDOCFLAGS="--html-in-header docs/doc-header.html" cargo doc --no-deps --all-features --document-private-items
+
+          # Create a simple header for better styling (if it doesn't exist)
+          mkdir -p docs
+          cat > docs/doc-header.html << 'EOF'
+          <style>
+          .rustdoc { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+          .docblock h1, .docblock h2, .docblock h3 { color: #2c3e50; }
+          .example-wrap pre { background: #f8f9fa; }
+          </style>
+          EOF
 
       - name: Copy Rust docs to book
         run: |
@@ -306,14 +313,14 @@ jobs:
           cd docs && mdbook build
 
       - name: Setup Pages
-        if: github.ref == 'refs/heads/main'
+        if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
         uses: actions/configure-pages@v4
         continue-on-error: true
         id: pages-setup
 
       - name: Set pages output
         id: pages-output
-        if: github.ref == 'refs/heads/main'
+        if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
         run: echo "pages-configured=${{ steps.pages-setup.outcome == 'success' }}" >> $GITHUB_OUTPUT
 
       - name: Upload documentation artifacts
@@ -326,7 +333,7 @@ jobs:
           retention-days: 30
 
       - name: Upload to GitHub Pages
-        if: github.ref == 'refs/heads/main' && steps.pages-setup.outcome == 'success'
+        if: (github.event_name == 'release' || github.event_name == 'workflow_dispatch') && steps.pages-setup.outcome == 'success'
         uses: actions/upload-pages-artifact@v3
         with:
           path: docs/book
@@ -335,7 +342,7 @@ jobs:
     name: Deploy Documentation
     needs: docs
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && needs.docs.outputs.pages-configured == 'true'
+    if: (github.event_name == 'release' || github.event_name == 'workflow_dispatch') && needs.docs.outputs.pages-configured == 'true'
 
     permissions:
       pages: write

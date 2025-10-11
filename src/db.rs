@@ -14,7 +14,103 @@ use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::thread;
 use std::time::{Duration, SystemTime};
 
-/// Main database structure
+/// Main SpatioLite database structure providing thread-safe spatial and temporal data storage.
+///
+/// The `DB` struct is the core of SpatioLite, offering:
+/// - Key-value storage with spatial indexing
+/// - Geographic point operations with geohash and S2 cell indexing
+/// - Trajectory tracking for moving objects
+/// - Geometry operations (points, lines, polygons)
+/// - Time-to-live (TTL) support for temporal data
+/// - Atomic batch operations
+/// - Optional persistence with append-only file (AOF) format
+///
+/// # Examples
+///
+/// ## Basic Usage
+/// ```rust
+/// use spatio_lite::{SpatioLite, Point, SetOptions};
+/// use std::time::Duration;
+///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// // Create an in-memory database
+/// let db = SpatioLite::memory()?;
+///
+/// // Store a simple key-value pair
+/// db.insert("key1", b"value1", None)?;
+///
+/// // Store data with TTL
+/// let opts = SetOptions::with_ttl(Duration::from_secs(300));
+/// db.insert("temp_key", b"expires_in_5_minutes", Some(opts))?;
+/// # Ok(())
+/// # }
+/// ```
+///
+/// ## Spatial Operations
+/// ```rust
+/// use spatio_lite::{SpatioLite, Point};
+///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let db = SpatioLite::memory()?;
+///
+/// // Store geographic points
+/// let nyc = Point::new(40.7128, -74.0060);
+/// let london = Point::new(51.5074, -0.1278);
+///
+/// db.insert_point_with_geohash("cities", &nyc, 8, b"New York", None)?;
+/// db.insert_point_with_geohash("cities", &london, 8, b"London", None)?;
+///
+/// // Find nearby cities within 100km
+/// let nearby = db.find_nearest_neighbors("cities", &nyc, 100_000.0, 10)?;
+/// println!("Found {} cities within 100km", nearby.len());
+/// # Ok(())
+/// # }
+/// ```
+///
+/// ## Trajectory Tracking
+/// ```rust
+/// use spatio_lite::{SpatioLite, Point};
+///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let db = SpatioLite::memory()?;
+///
+/// // Track a vehicle's movement over time
+/// let trajectory = vec![
+///     (Point::new(40.7128, -74.0060), 1640995200), // timestamp: unix epoch
+///     (Point::new(40.7180, -74.0020), 1640995260), // 1 minute later
+///     (Point::new(40.7230, -73.9980), 1640995320), // 2 minutes later
+/// ];
+///
+/// db.insert_trajectory("vehicle:truck001", &trajectory, None)?;
+///
+/// // Query trajectory for a time range
+/// let path = db.query_trajectory("vehicle:truck001", 1640995200, 1640995320)?;
+/// println!("Retrieved {} waypoints", path.len());
+/// # Ok(())
+/// # }
+/// ```
+///
+/// # Thread Safety
+///
+/// `DB` is thread-safe and can be cloned cheaply (it uses `Arc` internally).
+/// Multiple threads can read and write concurrently, with operations being
+/// atomic at the individual operation level.
+///
+/// # Persistence
+///
+/// For persistent storage, use `SpatioLite::open()` instead of `memory()`:
+///
+/// ```rust
+/// use spatio_lite::SpatioLite;
+///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// // Opens existing file or creates new one
+/// let db = SpatioLite::open("my_database.db")?;
+/// db.insert("persistent_key", b"this_survives_restarts", None)?;
+/// db.sync()?; // Force write to disk
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Clone)]
 pub struct DB {
     /// Read-write lock for the entire database
@@ -59,8 +155,49 @@ pub(crate) struct DBInner {
 }
 
 impl DB {
-    /// Open a database at the given path
-    /// Use ":memory:" for in-memory only database
+    /// Opens a SpatioLite database from a file path or creates a new one.
+    ///
+    /// This method handles both persistent and in-memory databases:
+    /// - For persistent storage: provide a file path (e.g., `"data.db"`)
+    /// - For in-memory only: use `":memory:"` as the path
+    ///
+    /// The underlying format is AOF (Append-Only File) regardless of extension.
+    /// Both `.db` and `.aof` extensions are supported for user convenience.
+    ///
+    /// If the file exists, it will be loaded and all operations replayed.
+    /// If the file doesn't exist, a new database will be created.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - File system path or ":memory:" for in-memory storage
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use spatio_lite::SpatioLite;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// // Create persistent database
+    /// let db = SpatioLite::open("my_data.db")?;
+    ///
+    /// // Create in-memory database
+    /// let mem_db = SpatioLite::open(":memory:")?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// # File Format
+    ///
+    /// SpatioLite uses an AOF (Append-Only File) format for persistence.
+    /// This provides durability and crash recovery while maintaining high
+    /// write performance. The file extension (`.db`, `.aof`) is cosmetic.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if:
+    /// - File permissions don't allow read/write access
+    /// - Existing AOF file is corrupted
+    /// - Disk space is insufficient for new file creation
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
         let path = path.as_ref();
         let is_memory = path.to_str() == Some(":memory:");
@@ -96,7 +233,23 @@ impl DB {
         Ok(db)
     }
 
-    /// Create an in-memory database
+    /// Creates a new in-memory SpatioLite database.
+    ///
+    /// This is a convenience method equivalent to `SpatioLite::open(":memory:")`.
+    /// The database will not persist to disk and all data will be lost when
+    /// the database is dropped.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use spatio_lite::SpatioLite;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let db = SpatioLite::memory()?;
+    /// db.insert("key", b"value", None)?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn memory() -> Result<Self> {
         Self::open(":memory:")
     }
@@ -120,7 +273,40 @@ impl DB {
         Ok(inner.stats.clone())
     }
 
-    /// Insert a single key-value pair atomically
+    /// Inserts a key-value pair into the database.
+    ///
+    /// This is the fundamental storage operation in SpatioLite. The operation
+    /// is atomic and thread-safe. If the key already exists, its value will
+    /// be updated.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - The key to store (can be string, bytes, etc.)
+    /// * `value` - The value to associate with the key
+    /// * `opts` - Optional settings like TTL, indexing preferences
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use spatio_lite::{SpatioLite, SetOptions};
+    /// use std::time::Duration;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let db = SpatioLite::memory()?;
+    ///
+    /// // Simple insert
+    /// db.insert("user:123", b"John Doe", None)?;
+    ///
+    /// // Insert with TTL
+    /// let opts = SetOptions::with_ttl(Duration::from_secs(3600));
+    /// db.insert("session:abc", b"session_data", Some(opts))?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// # Returns
+    ///
+    /// The previous value if the key existed, `None` if it was a new key.
     pub fn insert(
         &self,
         key: impl AsRef<[u8]>,
@@ -575,7 +761,34 @@ impl Drop for DB {
 
 impl DB {
     // Spatial database operations
-    /// Insert a point with automatic spatial indexing
+    /// Inserts a geographic point with automatic spatial indexing.
+    ///
+    /// This method stores a point and automatically creates spatial indexes
+    /// for efficient geographic queries. The point is stored in a format
+    /// that enables distance calculations and spatial range queries.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - Unique identifier for this point
+    /// * `point` - Geographic coordinates (latitude, longitude)
+    /// * `opts` - Optional settings like TTL
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use spatio_lite::{SpatioLite, Point};
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let db = SpatioLite::memory()?;
+    ///
+    /// let central_park = Point::new(40.7851, -73.9683);
+    /// db.insert_point("landmarks:central_park", &central_park, None)?;
+    ///
+    /// // Point can now be found in spatial queries
+    /// let nearby = db.find_nearest_neighbors("landmarks", &central_park, 1000.0, 5)?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn insert_point(
         &self,
         key: impl AsRef<[u8]>,
@@ -586,7 +799,48 @@ impl DB {
         self.insert(key, value.as_bytes(), opts)
     }
 
-    /// Insert a point with geohash indexing
+    /// Inserts a point with geohash-based spatial indexing.
+    ///
+    /// This method provides more control over spatial indexing by allowing
+    /// you to specify the geohash precision and namespace. Geohash indexing
+    /// enables fast spatial range queries and nearest neighbor searches.
+    ///
+    /// # Arguments
+    ///
+    /// * `prefix` - Namespace prefix for organizing related points
+    /// * `point` - Geographic coordinates to store
+    /// * `precision` - Geohash precision (1-12, higher = more precise)
+    /// * `value` - Additional data to associate with the point
+    /// * `opts` - Optional settings like TTL
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use spatio_lite::{SpatioLite, Point};
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let db = SpatioLite::memory()?;
+    ///
+    /// let restaurant = Point::new(40.7580, -73.9855);
+    /// db.insert_point_with_geohash(
+    ///     "restaurants",
+    ///     &restaurant,
+    ///     8,  // ~38m precision
+    ///     b"Joe's Pizza",
+    ///     None
+    /// )?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// # Geohash Precision Guide
+    ///
+    /// - 1: ±2500 km
+    /// - 4: ±20 km
+    /// - 6: ±610 m
+    /// - 8: ±38 m
+    /// - 10: ±60 cm
+    /// - 12: ±3.7 cm
     pub fn insert_point_with_geohash(
         &self,
         prefix: &str,
@@ -667,7 +921,47 @@ impl DB {
         Ok(results)
     }
 
-    /// Insert trajectory data
+    /// Inserts trajectory data for tracking moving objects over time.
+    ///
+    /// This method stores a sequence of timestamped positions, enabling
+    /// time-based spatial queries and movement analysis. Each point in
+    /// the trajectory includes both location and timestamp information.
+    ///
+    /// # Arguments
+    ///
+    /// * `object_id` - Unique identifier for the moving object
+    /// * `points` - Sequence of (point, timestamp) pairs
+    /// * `opts` - Optional settings like TTL for trajectory data
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use spatio_lite::{SpatioLite, Point};
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let db = SpatioLite::memory()?;
+    ///
+    /// // Track a delivery vehicle
+    /// let trajectory = vec![
+    ///     (Point::new(40.7128, -74.0060), 1640995200), // 12:00 PM
+    ///     (Point::new(40.7150, -74.0040), 1640995260), // 12:01 PM
+    ///     (Point::new(40.7180, -74.0020), 1640995320), // 12:02 PM
+    /// ];
+    ///
+    /// db.insert_trajectory("vehicle:truck_001", &trajectory, None)?;
+    ///
+    /// // Query trajectory for specific time range
+    /// let path = db.query_trajectory("vehicle:truck_001", 1640995200, 1640995320)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// # Use Cases
+    ///
+    /// - Vehicle tracking and fleet management
+    /// - Drone flight path recording
+    /// - Pedestrian movement analysis
+    /// - Asset tracking with location history
     pub fn insert_trajectory(
         &self,
         object_id: &str,

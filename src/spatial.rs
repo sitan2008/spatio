@@ -28,20 +28,102 @@ use geohash::{decode, encode, Direction};
 use s2::cellid::CellID;
 use std::fmt;
 
-/// A spatial point with latitude and longitude
+/// A geographic point representing a location on Earth's surface.
+///
+/// `Point` stores latitude and longitude coordinates and provides methods
+/// for spatial operations, distance calculations, and spatial indexing.
+/// All coordinates use the WGS84 coordinate reference system (EPSG:4326).
+///
+/// # Coordinate System
+///
+/// - **Latitude**: North-South position (-90° to +90°)
+///   - Positive values: North of equator
+///   - Negative values: South of equator
+/// - **Longitude**: East-West position (-180° to +180°)
+///   - Positive values: East of Prime Meridian
+///   - Negative values: West of Prime Meridian
+///
+/// # Examples
+///
+/// ```rust
+/// use spatio_lite::Point;
+///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// // Major world cities
+/// let new_york = Point::new(40.7128, -74.0060);
+/// let london = Point::new(51.5074, -0.1278);
+/// let tokyo = Point::new(35.6762, 139.6503);
+///
+/// // Calculate distance between cities
+/// let distance_km = new_york.distance_to(&london) / 1000.0;
+/// println!("NYC to London: {:.0} km", distance_km);
+///
+/// // Generate spatial index keys
+/// let geohash = new_york.to_geohash(8)?; // ~38m precision
+/// let s2_cell = london.to_s2_cell(16)?;  // ~152m avg area
+/// # Ok(())
+/// # }
+/// ```
+///
+/// # Precision and Accuracy
+///
+/// This implementation uses `f64` for coordinates, providing approximately
+/// 15-17 decimal digits of precision. At Earth's surface, this corresponds
+/// to sub-millimeter accuracy for most practical applications.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Point {
+    /// Latitude in decimal degrees (-90.0 to +90.0)
     pub lat: f64,
+    /// Longitude in decimal degrees (-180.0 to +180.0)
     pub lon: f64,
 }
 
 impl Point {
-    /// Create a new point from latitude and longitude
+    /// Creates a new point from latitude and longitude coordinates.
+    ///
+    /// # Arguments
+    ///
+    /// * `lat` - Latitude in decimal degrees (-90° to +90°)
+    /// * `lon` - Longitude in decimal degrees (-180° to +180°)
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use spatio_lite::Point;
+    ///
+    /// // Empire State Building
+    /// let empire_state = Point::new(40.7484, -73.9857);
+    ///
+    /// // Sydney Opera House
+    /// let opera_house = Point::new(-33.8568, 151.2153);
+    /// ```
+    ///
+    /// # Note
+    ///
+    /// This method does not validate coordinate ranges. Values outside
+    /// the valid ranges may cause unexpected behavior in spatial operations.
     pub fn new(lat: f64, lon: f64) -> Self {
         Self { lat, lon }
     }
 
-    /// Create a point from a geo::Point
+    /// Creates a point from a `geo::Point`.
+    ///
+    /// This method provides interoperability with the `geo` crate,
+    /// allowing easy conversion from `geo` types to SpatioLite points.
+    ///
+    /// # Arguments
+    ///
+    /// * `point` - A point from the `geo` crate
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use spatio_lite::Point;
+    /// use geo::Point as GeoPoint;
+    ///
+    /// let geo_point = GeoPoint::new(-73.9857, 40.7484);
+    /// let spatio_point = Point::from_geo_point(geo_point);
+    /// ```
     pub fn from_geo_point(point: GeoPoint<f64>) -> Self {
         Self {
             lat: point.y(),
@@ -62,7 +144,50 @@ impl Point {
         }
     }
 
-    /// Generate a geohash for this point
+    /// Generates a geohash string for this point at the specified precision.
+    ///
+    /// Geohash is a hierarchical spatial data structure that subdivides space
+    /// into buckets of grid shape. Points close to each other will have similar
+    /// geohash prefixes, making it useful for spatial indexing and range queries.
+    ///
+    /// # Arguments
+    ///
+    /// * `precision` - Number of characters in the geohash (1-12)
+    ///   - Higher precision = smaller area covered
+    ///   - Lower precision = larger area covered
+    ///
+    /// # Precision Guide
+    ///
+    /// | Precision | Lat Error | Lng Error | Area Coverage |
+    /// |-----------|-----------|-----------|---------------|
+    /// | 1         | ±23°      | ±23°      | ±2500 km      |
+    /// | 3         | ±2.8°     | ±5.6°     | ±156 km       |
+    /// | 5         | ±0.35°    | ±0.70°    | ±20 km        |
+    /// | 7         | ±0.044°   | ±0.088°   | ±2.4 km       |
+    /// | 9         | ±0.0055°  | ±0.011°   | ±305 m        |
+    /// | 11        | ±0.00068° | ±0.0014°  | ±38 m         |
+    /// | 12        | ±0.00017° | ±0.00034° | ±9.5 m        |
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use spatio_lite::Point;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let statue_of_liberty = Point::new(40.6892, -74.0445);
+    ///
+    /// let coarse = statue_of_liberty.to_geohash(5)?;   // ~20km precision
+    /// let fine = statue_of_liberty.to_geohash(10)?;    // ~150m precision
+    ///
+    /// println!("Coarse geohash: {}", coarse); // "dr5rs"
+    /// println!("Fine geohash: {}", fine);     // "dr5rs7q40b"
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if precision is 0 or greater than 12.
     pub fn to_geohash(&self, precision: usize) -> Result<String> {
         encode(
             Coord {
@@ -74,7 +199,48 @@ impl Point {
         .map_err(|_| SpatioLiteError::InvalidOperation("Invalid geohash precision".to_string()))
     }
 
-    /// Generate an S2 cell ID for this point (simplified implementation)
+    /// Generates an S2 cell ID for this point at the specified level.
+    ///
+    /// S2 is Google's library for spherical geometry that provides a
+    /// hierarchical decomposition of the sphere into cells. Unlike geohash's
+    /// rectangular cells, S2 uses adaptive quad-tree decomposition with
+    /// cells that better preserve area and shape properties.
+    ///
+    /// # Arguments
+    ///
+    /// * `level` - S2 cell level (0-30)
+    ///   - Level 0: ~85,011,000 km² (whole face of cube)
+    ///   - Level 10: ~20,971 km²
+    ///   - Level 15: ~655 km²
+    ///   - Level 20: ~20.5 km²
+    ///   - Level 25: ~0.64 km²
+    ///   - Level 30: ~0.48 m²
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use spatio_lite::Point;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let golden_gate = Point::new(37.8199, -122.4783);
+    ///
+    /// let city_level = golden_gate.to_s2_cell(15)?;  // ~655 km² cells
+    /// let block_level = golden_gate.to_s2_cell(20)?; // ~20.5 km² cells
+    ///
+    /// println!("City level S2: {:016x}", city_level);
+    /// println!("Block level S2: {:016x}", block_level);
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if level is greater than 30.
+    ///
+    /// # Note
+    ///
+    /// This is a simplified S2 implementation. For production use with
+    /// full S2 features, consider using the dedicated `s2` crate.
     pub fn to_s2_cell(&self, level: u8) -> Result<u64> {
         if level > 30 {
             return Err(SpatioLiteError::InvalidOperation(
@@ -90,7 +256,49 @@ impl Point {
         Ok((level as u64) << 56 | lat_norm << 28 | lon_norm)
     }
 
-    /// Calculate distance to another point using Haversine formula
+    /// Calculates the great-circle distance to another point in meters.
+    ///
+    /// Uses the Haversine formula to compute the shortest distance between
+    /// two points on Earth's surface, accounting for the planet's spherical
+    /// shape. This is accurate for most applications, with typical errors
+    /// under 0.5% for distances up to a few thousand kilometers.
+    ///
+    /// # Arguments
+    ///
+    /// * `other` - The destination point
+    ///
+    /// # Returns
+    ///
+    /// Distance in meters as a floating-point number.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use spatio_lite::Point;
+    ///
+    /// let new_york = Point::new(40.7128, -74.0060);
+    /// let los_angeles = Point::new(34.0522, -118.2437);
+    ///
+    /// let distance_m = new_york.distance_to(&los_angeles);
+    /// let distance_km = distance_m / 1000.0;
+    /// let distance_miles = distance_m / 1609.34;
+    ///
+    /// println!("Distance: {:.0} km ({:.0} miles)", distance_km, distance_miles);
+    /// // Output: Distance: 3944 km (2451 miles)
+    /// ```
+    ///
+    /// # Accuracy
+    ///
+    /// - Very accurate for distances under 1000 km
+    /// - Good accuracy (< 0.5% error) for distances under 10,000 km
+    /// - For geodesic precision over long distances, consider using
+    ///   specialized libraries like `geographiclib`
+    ///
+    /// # Performance
+    ///
+    /// This is an optimized implementation using the `geo` crate's
+    /// Haversine distance calculation, suitable for high-frequency
+    /// distance computations.
     pub fn distance_to(&self, other: &Point) -> f64 {
         use geo::algorithm::Distance;
         use geo::Haversine;

@@ -38,7 +38,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let nearby_1000km =
         db.find_nearest_neighbors("world_cities", &reference_point, 1_000_000.0, 10)?;
     println!("\nCities within 1000km of Paris:");
-    for (city_key, _value, point, distance) in &nearby_1000km {
+    for (city_key, _value, _point, distance) in &nearby_1000km {
         println!("  {} - {:.0} km", city_key, distance / 1000.0);
     }
 
@@ -96,10 +96,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::collections::HashMap::new();
     for (name, point) in &cities {
         let geohash = point.to_geohash(3)?;
-        geohash_groups
-            .entry(geohash)
-            .or_insert_with(Vec::new)
-            .push(name);
+        geohash_groups.entry(geohash).or_default().push(name);
     }
 
     println!("\nCities grouped by geohash prefix (3 chars):");

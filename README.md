@@ -113,9 +113,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Found {} nearby cities", nearby.len());
 
     // Persistent database with AOF replay
-    let persistent_db = SpatioLite::open("my_data.aof")?;
+    let persistent_db = SpatioLite::open("my_data.db")?;
     persistent_db.insert("persistent:key", b"persistent_value", None)?;
     persistent_db.sync()?; // Force sync to disk
+
+    // Note: Both .db and .aof extensions are supported
+    // let db_alt = SpatioLite::open("data.aof")?;  // Also works
 
     Ok(())
 }
@@ -338,18 +341,6 @@ SpatioLite is currently in **early development** (v0.1.x). The core functionalit
 ### Logo Usage
 
 The SpatioLite logo is available at `assets/images/logo.png`. When using the logo in your own projects or documentation:
-
-```html
-<!-- For web usage -->
-<img src="https://raw.githubusercontent.com/pkvartsianyi/SpatioLite/main/assets/images/logo.png" alt="SpatioLite Logo" width="200">
-```
-
-```markdown
-<!-- For Markdown documentation -->
-![SpatioLite Logo](https://raw.githubusercontent.com/pkvartsianyi/SpatioLite/main/assets/images/logo.png)
-```
-
-Please refer to the [assets directory](assets/) for usage guidelines and additional branding materials.
 
 ## Contributing
 

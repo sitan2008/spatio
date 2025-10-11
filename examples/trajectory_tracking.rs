@@ -160,7 +160,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Simulate a bike messenger with real-time updates
     let current_time = 1640996200u64;
-    let bike_positions = vec![
+    let bike_positions = [
         Point::new(40.7505, -73.9934), // Start
         Point::new(40.7510, -73.9930), // Moving
         Point::new(40.7515, -73.9926), // Moving
@@ -238,11 +238,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for (truck_point, truck_time) in &delivery_truck_route {
         for (taxi_point, taxi_time) in &taxi_route {
             let distance = truck_point.distance_to(taxi_point);
-            let time_diff = if truck_time > taxi_time {
-                truck_time - taxi_time
-            } else {
-                taxi_time - truck_time
-            };
+            let time_diff = truck_time.abs_diff(*taxi_time);
 
             if distance <= proximity_threshold && time_diff <= 60 {
                 intersections_found += 1;

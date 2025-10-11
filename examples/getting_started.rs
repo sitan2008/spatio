@@ -13,8 +13,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     db.insert("hello", b"world", None)?;
     let value = db.get("hello")?.unwrap();
     println!(
-        "✓ Basic storage: {} = {}",
-        "hello",
+        "✓ Basic storage: hello = {}",
         String::from_utf8_lossy(&value)
     );
 

@@ -47,6 +47,69 @@
 //! # Ok(())
 //! # }
 //! ```
+//!
+//! ## Advanced Geometry Operations
+//!
+//! ```rust
+//! use spatio_lite::{SpatioLite, geometry::{Coordinate, Polygon, LinearRing, GeometryOps}};
+//!
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let db = SpatioLite::memory()?;
+//!
+//! // Create a polygon (e.g., a park boundary)
+//! let park_coords = vec![
+//!     Coordinate::new(-73.9733, 40.7644), // SW corner
+//!     Coordinate::new(-73.9500, 40.7644), // SE corner
+//!     Coordinate::new(-73.9500, 40.7997), // NE corner
+//!     Coordinate::new(-73.9733, 40.7997), // NW corner
+//!     Coordinate::new(-73.9733, 40.7644), // Close the ring
+//! ];
+//! let park_ring = LinearRing::new(park_coords)?;
+//! let central_park = Polygon::new(park_ring);
+//!
+//! // Store the polygon
+//! db.insert_polygon("parks", &central_park, b"Central Park", None)?;
+//!
+//! // Create a buffer zone around a point
+//! let center = Coordinate::new(-73.9857, 40.7484);
+//! let buffer = GeometryOps::buffer_point(&center, 0.005, 16)?;
+//! db.insert_polygon("zones", &buffer, b"Safety Zone", None)?;
+//!
+//! // Spatial queries - find geometries containing a point
+//! let test_point = Coordinate::new(-73.9650, 40.7820);
+//! let containing = db.geometries_containing_point("parks", &test_point)?;
+//! println!("Found {} parks containing the point", containing.len());
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## Trajectory Tracking
+//!
+//! ```rust
+//! use spatio_lite::{SpatioLite, Point, SetOptions};
+//! use std::time::Duration;
+//!
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let db = SpatioLite::memory()?;
+//!
+//! // Track a vehicle's movement over time
+//! let vehicle_path = vec![
+//!     (Point::new(40.7128, -74.0060), 1640995200), // Start: Financial District
+//!     (Point::new(40.7180, -74.0020), 1640995260), // Move north (1 min later)
+//!     (Point::new(40.7230, -73.9980), 1640995320), // Continue north (2 min later)
+//!     (Point::new(40.7484, -73.9857), 1640995380), // End: Times Square (3 min later)
+//! ];
+//!
+//! // Store trajectory with TTL
+//! let ttl_opts = Some(SetOptions::with_ttl(Duration::from_secs(3600)));
+//! db.insert_trajectory("vehicle:truck001", &vehicle_path, ttl_opts)?;
+//!
+//! // Query trajectory for specific time range
+//! let path_segment = db.query_trajectory("vehicle:truck001", 1640995200, 1640995320)?;
+//! println!("Retrieved {} waypoints for first 2 minutes", path_segment.len());
+//! # Ok(())
+//! # }
+//! ```
 
 pub mod batch;
 pub mod db;

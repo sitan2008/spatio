@@ -37,6 +37,15 @@ This error occurs when GitHub Pages is not properly configured. Follow these ste
    - Under "Workflow permissions", ensure "Read and write permissions" is selected
    - OR ensure the workflow has explicit `pages: write` and `id-token: write` permissions
 
+## Deployment Strategy
+
+Documentation is now deployed only on:
+- **Releases**: When you publish a new release
+- **Manual trigger**: Using workflow_dispatch in GitHub Actions
+
+This prevents unnecessary deployments on every commit to main and ensures
+documentation updates align with actual releases.
+
 ### Error: "Resource not accessible by integration"
 
 This typically means:
@@ -49,32 +58,45 @@ This typically means:
 
 You can verify the setup works by:
 
-1. Running the documentation workflow manually:
+1. **Running the documentation workflow manually:**
    - Go to Actions → Documentation
    - Click "Run workflow"
    - Select the `main` branch
    - Click "Run workflow"
 
-2. Check the workflow logs for any errors
+2. **Publishing a release:**
+   - Go to Releases → Create a new release
+   - This will automatically trigger documentation deployment
 
-3. Once successful, visit your Pages URL to see the documentation
+3. **Check the workflow logs for any errors**
+
+4. **Once successful, visit your Pages URL to see the documentation**
+
+The documentation includes:
+- **API Documentation**: Comprehensive Rust docs with examples
+- **User Guides**: Getting started, spatial queries, trajectory tracking
+- **Examples**: Runnable code samples demonstrating features
 
 ## What Gets Deployed
 
 The documentation workflow builds and deploys:
 
-- **API Documentation**: Rust docs generated from code comments
-- **User Guide**: Comprehensive guide with examples
-- **Performance Benchmarks**: Latest benchmark results
-- **Getting Started**: Quick start guide for new users
+- **API Documentation**: Comprehensive Rust docs with detailed examples and method documentation
+- **User Guide**: Complete guide covering basic to advanced operations
+- **Code Examples**: Multiple focused examples (getting_started, spatial_queries, trajectory_tracking)
+- **Geometry Operations**: Full geometry support documentation with WKT examples
+- **Performance Information**: Benchmark results and optimization guides
 
 ## Updating Documentation
 
 Documentation is automatically updated when:
 
-- Code is pushed to the `main` branch
-- A new release is published
-- The workflow is manually triggered
+- **A new release is published** (recommended)
+- **The workflow is manually triggered** via workflow_dispatch
+
+Note: Documentation is no longer deployed on every push to main. This ensures
+that published documentation aligns with stable releases and reduces unnecessary
+deployment overhead.
 
 The documentation includes:
 - Auto-generated API docs from Rust code
