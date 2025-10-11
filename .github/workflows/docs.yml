@@ -12,10 +12,17 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 jobs:
   docs:
     name: Build Documentation
     runs-on: ubuntu-latest
+    outputs:
+      pages-configured: ${{ steps.pages-output.outputs.pages-configured }}
 
     steps:
       - name: Checkout code
@@ -301,6 +308,13 @@ jobs:
       - name: Setup Pages
         if: github.ref == 'refs/heads/main'
         uses: actions/configure-pages@v4
+        continue-on-error: true
+        id: pages-setup
+
+      - name: Set pages output
+        id: pages-output
+        if: github.ref == 'refs/heads/main'
+        run: echo "pages-configured=${{ steps.pages-setup.outcome == 'success' }}" >> $GITHUB_OUTPUT
 
       - name: Upload documentation artifacts
         uses: actions/upload-artifact@v4
@@ -312,7 +326,7 @@ jobs:
           retention-days: 30
 
       - name: Upload to GitHub Pages
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && steps.pages-setup.outcome == 'success'
         uses: actions/upload-pages-artifact@v3
         with:
           path: docs/book
@@ -321,7 +335,7 @@ jobs:
     name: Deploy Documentation
     needs: docs
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && needs.docs.outputs.pages-configured == 'true'
 
     permissions:
       pages: write

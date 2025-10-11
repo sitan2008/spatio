@@ -4,8 +4,6 @@
 
 # SpatioLite
 
-[![CI](https://github.com/spatiolite/spatiolite/workflows/CI/badge.svg)](https://github.com/spatiolite/spatiolite/actions)
-[![Security](https://github.com/spatiolite/spatiolite/workflows/Security/badge.svg)](https://github.com/spatiolite/spatiolite/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Crates.io](https://img.shields.io/crates/v/spatio_lite.svg)](https://crates.io/crates/spatio_lite)
 [![Documentation](https://docs.rs/spatio_lite/badge.svg)](https://docs.rs/spatio_lite)
@@ -356,7 +354,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 SpatioLite is inspired by:
 - [BuntDB](https://github.com/tidwall/buntdb) - Fast embeddable in-memory key/value database in Go
-- [Redis](https://redis.io/) - For its excellent performance characteristics
 - [PostGIS](https://postgis.net/) - For spatial database operations
 
 ## Contact
