@@ -8,20 +8,20 @@
 
 **SpatioLite** is a high-performance, embedded spatio-temporal database designed for modern applications that need to store and query location-based data with temporal components.
 
-## 🚀 Features
+## Features
 
-- **🧠 In-Memory Performance**: Fast reads and writes with optional persistence
-- **🌍 Spatial Indexing**: Geohash, S2 cells, and R-tree indexing for geospatial data
-- **⏰ Time-to-Live (TTL)**: Built-in expiration for temporal data
-- **🔒 Thread-Safe**: Concurrent operations with atomic batches
-- **💾 Persistent Storage**: Append-only file (AOF) format with replay support
-- **📍 Geo-Spatial Features**: Point storage, trajectory tracking, and spatial queries
-- **🔺 Advanced Geometry**: Full support for polygons and linestrings
-- **📐 Spatial Operations**: Point-in-polygon, intersections, distance calculations, and buffering
-- **🗺️ Standards Compliant**: WKT serialization and GeoJSON-compatible geometry types
-- **🔧 Embeddable**: Simple API that integrates easily into any Rust application
+- **In-Memory Performance**: Fast reads and writes with optional persistence
+- **Spatial Indexing**: Geohash, S2 cells, and R-tree indexing for geospatial data
+- **Time-to-Live (TTL)**: Built-in expiration for temporal data
+- **Thread-Safe**: Concurrent operations with atomic batches
+- **Persistent Storage**: Append-only file (AOF) format with replay support
+- **Geo-Spatial Features**: Point storage, trajectory tracking, and spatial queries
+- **Advanced Geometry**: Full support for polygons and linestrings
+- **Spatial Operations**: Point-in-polygon, intersections, distance calculations, and buffering
+- **Standards Compliant**: WKT serialization and GeoJSON-compatible geometry types
+- **Embeddable**: Simple API that integrates easily into any Rust application
 
-## 📦 Installation
+## Installation
 
 Add SpatioLite to your `Cargo.toml`:
 
@@ -30,7 +30,7 @@ Add SpatioLite to your `Cargo.toml`:
 spatio_lite = "0.1"
 ```
 
-## 🏃‍♂️ Quick Start
+## Quick Start
 
 ```rust
 use spatio_lite::{
@@ -117,7 +117,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-## 🌐 Use Cases
+## Use Cases
 
 ### IoT & Sensor Networks
 Store sensor readings with location and timestamp information:
@@ -204,7 +204,7 @@ let ttl_opts = SetOptions::with_ttl(Duration::from_hours(1));
 db.insert("analytics:traffic:route_66", b"congestion_level:high", Some(ttl_opts))?;
 ```
 
-## 🏗️ Architecture
+## Architecture
 
 SpatioLite is designed with a simple but powerful architecture:
 
@@ -235,7 +235,7 @@ SpatioLite is designed with a simple but powerful architecture:
 └─────────────────┘
 ```
 
-## ⚡ Performance
+## Performance
 
 SpatioLite is optimized for high-throughput scenarios:
 
@@ -244,7 +244,7 @@ SpatioLite is optimized for high-throughput scenarios:
 - **Memory-efficient** spatial indexing
 - **Atomic batch operations** for consistency without traditional ACID overhead
 
-## 🔧 Configuration
+## Configuration
 
 ```rust
 use spatio_lite::{Config, SyncPolicy};
@@ -258,11 +258,11 @@ let db = SpatioLite::memory()?;
 db.set_config(config)?;
 ```
 
-## 🛠️ Development Status
+## Development Status
 
 SpatioLite is currently in **early development** (v0.1.x). The core functionality is working, but the API may change before v1.0.
 
-### ✅ Implemented
+### Implemented
 - [x] In-memory key-value storage
 - [x] Atomic operations and batches
 - [x] TTL/expiration support
@@ -280,12 +280,12 @@ SpatioLite is currently in **early development** (v0.1.x). The core functionalit
 - [x] Comprehensive test suite
 - [x] Benchmarking suite
 
-### 🚧 In Progress
+### In Progress
 - [ ] Index management API
 - [ ] Performance optimizations
 - [ ] GeoJSON import/export
 
-### 📋 Planned
+### Planned
 - [ ] Spatial joins and complex queries
 - [ ] Geometry validation and repair
 - [ ] Coordinate reference system support
@@ -294,13 +294,13 @@ SpatioLite is currently in **early development** (v0.1.x). The core functionalit
 - [ ] Monitoring and metrics
 - [ ] Query language (SpatioQL)
 
-## 📖 Documentation
+## Documentation
 
 - [API Documentation](https://docs.rs/spatio_lite) (Generated from code)
 - [Examples](src/main.rs) - Comprehensive spatial demo
 - [Benchmarks](benches/) - Performance testing suite
 
-## 🤝 Contributing
+## Contributing
 
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
@@ -325,22 +325,22 @@ cargo fmt --all -- --check
 cargo clippy --all-targets --all-features
 ```
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 SpatioLite is inspired by:
 - [BuntDB](https://github.com/tidwall/buntdb) - Fast embeddable in-memory key/value database in Go
 - [Redis](https://redis.io/) - For its excellent performance characteristics
 - [PostGIS](https://postgis.net/) - For spatial database operations
 
-## 📞 Contact
+## Contact
 
 - **Issues**: [GitHub Issues](https://github.com/pkvartsianyi/SpatioLite/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/pkvartsianyi/SpatioLite/discussions)
 
 ---
 
-**Built with ❤️ in Rust**
+**Built with Rust**

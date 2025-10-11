@@ -5,13 +5,13 @@
 //!
 //! ## Features
 //!
-//! - **🧠 In-Memory Performance**: Fast reads and writes with optional persistence
-//! - **🌍 Spatial Indexing**: Geohash, S2 cells, and R-tree indexing for geospatial data
-//! - **⏰ Time-to-Live (TTL)**: Built-in expiration for temporal data
-//! - **🔒 Thread-Safe**: Concurrent operations with atomic batches
-//! - **💾 Persistent Storage**: Append-only file (AOF) format with replay support
-//! - **📍 Geo-Spatial Features**: Point storage, trajectory tracking, and spatial queries
-//! - **🔧 Embeddable**: Simple API that integrates easily into any Rust application
+//! - **In-Memory Performance**: Fast reads and writes with optional persistence
+//! - **Spatial Indexing**: Geohash, S2 cells, and R-tree indexing for geospatial data
+//! - **Time-to-Live (TTL)**: Built-in expiration for temporal data
+//! - **Thread-Safe**: Concurrent operations with atomic batches
+//! - **Persistent Storage**: Append-only file (AOF) format with replay support
+//! - **Geo-Spatial Features**: Point storage, trajectory tracking, and spatial queries
+//! - **Embeddable**: Simple API that integrates easily into any Rust application
 //!
 //! ## Quick Start
 //!
