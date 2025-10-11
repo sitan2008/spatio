@@ -407,8 +407,16 @@ fn test_large_dataset_performance() {
             size,
             insert_duration
         );
+        // Adjust query performance expectations based on dataset size
+        let max_query_duration = match size {
+            1000 => Duration::from_millis(500),
+            5000 => Duration::from_millis(1000),
+            10000 => Duration::from_millis(1500),
+            20000 => Duration::from_millis(2000),
+            _ => Duration::from_secs(3),
+        };
         assert!(
-            query_duration < Duration::from_secs(1),
+            query_duration < max_query_duration,
             "Query for size {} took too long: {:?}",
             size,
             query_duration

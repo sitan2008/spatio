@@ -283,7 +283,7 @@ SpatioLite is designed with a simple but powerful architecture:
 
 ## Performance
 
-SpatioLite is optimized for high-throughput scenarios:
+SpatioLite is optimized for high-throughput scenarios with excellent performance characteristics:
 
 - **1M+ operations/second** for in-memory workloads
 - **Sub-millisecond** query latency for indexed data

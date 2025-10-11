@@ -1,6 +1,7 @@
 use crate::error::{Result, SpatioLiteError};
 use crate::types::{IndexOptions, IndexType, LessFunc, Rect, RectFunc};
 use bytes::Bytes;
+use geohash;
 use rstar::{RTree, RTreeObject, AABB};
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
@@ -112,7 +113,25 @@ impl Index {
                 // R-tree index
                 if let Some(rtree) = &mut self.rtree {
                     if let Some(ref rect_func) = self.rect_func {
-                        match rect_func(value) {
+                        // For spatial indexes, we need to extract coordinates from either key or value
+                        let key_str = String::from_utf8_lossy(key);
+                        let rect_result = if key_str.contains(":gh:") {
+                            // Extract coordinates from geohash in key
+                            if let Some(geohash_part) = key_str.split(':').nth(2) {
+                                if let Ok(decoded) = geohash::decode(geohash_part) {
+                                    Ok(crate::types::Rect::point(vec![decoded.0.y, decoded.0.x]))
+                                } else {
+                                    rect_func(value)
+                                }
+                            } else {
+                                rect_func(value)
+                            }
+                        } else {
+                            // Use the provided rect function for regular point data
+                            rect_func(value)
+                        };
+
+                        match rect_result {
                             Ok(rect) => {
                                 let spatial_item = SpatialItem {
                                     key: key.clone(),
@@ -236,29 +255,33 @@ impl Index {
                 if point.len() >= 2 {
                     let query_point = [point[0], point[1]];
 
-                    // Simple distance calculation for all items since we can't use Point trait
+                    // Collect all items with distances and sort manually
+                    let mut candidates = Vec::new();
+
                     for item in rtree.iter() {
                         let envelope = item.envelope();
                         let center_x = (envelope.lower()[0] + envelope.upper()[0]) / 2.0;
                         let center_y = (envelope.lower()[1] + envelope.upper()[1]) / 2.0;
 
+                        // Calculate euclidean distance for sorting (will be refined later with geographic distance)
                         let dx = center_x - query_point[0];
                         let dy = center_y - query_point[1];
                         let distance = (dx * dx + dy * dy).sqrt();
 
-                        results.push((item.key.clone(), item.value.clone(), distance));
+                        candidates.push((item.key.clone(), item.value.clone(), distance));
                     }
 
-                    // Sort by distance and take max_results
-                    results
+                    // Sort by distance and take the closest ones
+                    candidates
                         .sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap_or(std::cmp::Ordering::Equal));
-                    results.truncate(max_results);
+
+                    results.extend(candidates.into_iter().take(max_results));
                 }
 
                 Ok(results)
             }
             None => Err(SpatioLiteError::InvalidOperation(
-                "Nearest neighbor query not supported on B-tree indexes".to_string(),
+                "Nearest neighbor query requires R-tree index".to_string(),
             )),
         }
     }
