@@ -1,14 +1,23 @@
-<div align="center">
+<p align="center">
+    <a href="https://github.com/pkvartsianyi/spatio-lite">
+        <img src="assets/images/logo-min.png" height="60" alt="Spatio Logo">
+    </a>
+</p>
 
-![SpatioLite Logo](assets/images/logo.png)
+<h1 align="center">Spatio</h1>
 
-# SpatioLite
+<p align="center">
+  <a href="https://opensource.org/licenses/MIT">
+    <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT">
+  </a>
+  <a href="https://crates.io/crates/spatio">
+    <img src="https://img.shields.io/badge/Rust-%23000000.svg?logo=rust&logoColor=white" alt="Crates.io">
+  </a>
+  <a href="https://pkvartsianyi.github.io/spatio">
+    <img src="https://img.shields.io/badge/Docs-Available-blue.svg" alt="Documentation">
+  </a>
+</p>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Crates.io](https://img.shields.io/crates/v/spatio_lite.svg)](https://crates.io/crates/spatio_lite)
-[![Documentation](https://docs.rs/spatio_lite/badge.svg)](https://docs.rs/spatio_lite)
-
-</div>
 
 **SpatioLite** is a high-performance, embedded spatio-temporal database designed for modern applications that need to store and query location-based data with temporal components.
 
@@ -322,14 +331,6 @@ SpatioLite is currently in **early development** (v0.1.x). The core functionalit
 - [ ] Performance optimizations
 - [ ] GeoJSON import/export
 
-### Planned
-- [ ] Spatial joins and complex queries
-- [ ] Geometry validation and repair
-- [ ] Coordinate reference system support
-- [ ] Compression for AOF files
-- [ ] Backup/restore utilities
-- [ ] Monitoring and metrics
-- [ ] Query language (SpatioQL)
 
 ## Documentation
 
@@ -379,8 +380,8 @@ SpatioLite is inspired by:
 
 ## Contact
 
-- **Issues**: [GitHub Issues](https://github.com/pkvartsianyi/SpatioLite/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/pkvartsianyi/SpatioLite/discussions)
+- **Issues**: [GitHub Issues](https://github.com/pkvartsianyi/spatio-lite/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/pkvartsianyi/spatio-lite/discussions)
 
 ---
 
