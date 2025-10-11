@@ -1,6 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use spatio_lite::{Point, SetOptions, SpatioLite};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::AtomicU64;
 use std::time::Duration;
 
 fn benchmark_basic_operations(c: &mut Criterion) {
@@ -69,55 +69,42 @@ fn benchmark_spatial_operations(c: &mut Criterion) {
 
     // Benchmark geohash insertion
     group.bench_function("geohash_insert", |b| {
-        static COUNTER: AtomicUsize = AtomicUsize::new(0);
-        b.iter_with_setup(
-            || {
-                // Setup: create unique coordinates for each iteration
-                let counter = COUNTER.fetch_add(1, Ordering::Relaxed);
-                let lat = 40.7128 + (counter as f64 * 0.0001);
-                let lon = -74.0060 + (counter as f64 * 0.0001);
-                let point = Point::new(lat, lon);
-                let data = format!("data:{}", counter);
-                (point, data, counter)
-            },
-            |(point, data, _counter)| {
-                db.insert_point_with_geohash(
-                    "geohash_bench",
-                    black_box(&point),
-                    8,
-                    black_box(data.as_bytes()),
-                    None,
-                )
-                .unwrap()
-            },
-        )
+        let mut counter = 0;
+        b.iter(|| {
+            let lat = 40.7128 + ((counter % 1000) as f64 * 0.0001);
+            let lon = -74.0060 + ((counter % 1000) as f64 * 0.0001);
+            let point = Point::new(lat, lon);
+            let data = format!("data:{}", counter);
+            counter += 1;
+            db.insert_point_with_geohash(
+                "geohash_bench",
+                black_box(&point),
+                8,
+                black_box(data.as_bytes()),
+                None,
+            )
+            .unwrap()
+        })
     });
 
     // Benchmark S2 cell insertion
-    // Benchmark spatial search with larger dataset
     group.bench_function("s2_insert", |b| {
-        static COUNTER: AtomicUsize = AtomicUsize::new(0);
-        b.iter_with_setup(
-            || {
-                // Setup: create unique coordinates for each iteration
-                let counter = COUNTER.fetch_add(1, Ordering::Relaxed);
-                let lat = 40.7128 + (counter as f64 * 0.0001);
-                let lon = -74.0060 + (counter as f64 * 0.0001);
-                let point = Point::new(lat, lon);
-                let data = format!("data:{}", counter);
-                (point, data, counter)
-            },
-            |(point, data, _counter)| {
-                db.insert_point_with_s2(
-                    "s2_bench",
-                    black_box(&point),
-                    16,
-                    black_box(data.as_bytes()),
-                    None,
-                )
-                .unwrap()
-            },
-        )
+        let mut counter = 0;
+        b.iter(|| {
+            let lat = 40.7128 + ((counter % 1000) as f64 * 0.0001);
+            let lon = -74.0060 + ((counter % 1000) as f64 * 0.0001);
+            let point = Point::new(lat, lon);
+            let data = format!("data:{}", counter);
+            counter += 1;
+            db.insert_point_with_s2(
+                "s2_bench",
+                black_box(&point),
+                16,
+                black_box(data.as_bytes()),
+                None,
+            )
+            .unwrap()
+        })
     });
 
     // Setup data for spatial queries
@@ -154,32 +141,26 @@ fn benchmark_trajectory_operations(c: &mut Criterion) {
 
     // Benchmark trajectory insertion
     group.bench_function("trajectory_insert", |b| {
-        static COUNTER: AtomicUsize = AtomicUsize::new(0);
-        b.iter_with_setup(
-            || {
-                // Setup: create unique trajectory for each iteration
-                let counter = COUNTER.fetch_add(1, Ordering::Relaxed);
-                let mut trajectory = Vec::new();
-                let base_lat = 40.7128;
-                let base_lon = -74.0060;
-                let base_time = 1640995200u64 + (counter as u64) * 1000;
+        let mut counter = 0;
+        b.iter(|| {
+            let mut trajectory = Vec::new();
+            let base_lat = 40.7128;
+            let base_lon = -74.0060;
+            let base_time = 1640995200u64 + (counter as u64) * 1000;
 
-                for i in 0..100 {
-                    let lat = base_lat + (i as f64 * 0.0001);
-                    let lon = base_lon + (i as f64 * 0.0001);
-                    let point = Point::new(lat, lon);
-                    let timestamp = base_time + (i as u64) * 10;
-                    trajectory.push((point, timestamp));
-                }
+            for i in 0..100 {
+                let lat = base_lat + (i as f64 * 0.0001);
+                let lon = base_lon + (i as f64 * 0.0001);
+                let point = Point::new(lat, lon);
+                let timestamp = base_time + (i as u64) * 10;
+                trajectory.push((point, timestamp));
+            }
 
-                let object_id = format!("trajectory:{}", counter);
-                (object_id, trajectory)
-            },
-            |(object_id, trajectory)| {
-                db.insert_trajectory(black_box(&object_id), black_box(&trajectory), None)
-                    .unwrap()
-            },
-        )
+            let object_id = format!("trajectory:{}", counter);
+            counter += 1;
+            db.insert_trajectory(black_box(&object_id), black_box(&trajectory), None)
+                .unwrap()
+        })
     });
 
     // Setup trajectory data for querying
@@ -216,7 +197,7 @@ fn benchmark_concurrent_operations(c: &mut Criterion) {
 
     // Benchmark concurrent inserts
     group.bench_function("concurrent_inserts", |b| {
-        let counter = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));
+        let counter = std::sync::Arc::new(AtomicU64::new(0));
         b.iter(|| {
             let handles: Vec<_> = (0..10)
                 .map(|thread_id| {
