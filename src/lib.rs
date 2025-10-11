@@ -51,6 +51,7 @@
 pub mod batch;
 pub mod db;
 pub mod error;
+pub mod geometry;
 pub mod index;
 pub mod persistence;
 pub mod spatial;
@@ -65,6 +66,9 @@ pub use error::{Result, SpatioLiteError};
 pub use spatial::{
     BoundingBox, CoordinateSystem, GeohashUtils, Point, S2Utils, SpatialAnalysis, SpatialKey,
 };
+
+// Re-export geometry types
+pub use geometry::{Coordinate, Geometry, GeometryOps, LineString, LinearRing, Polygon};
 
 // Re-export batch and transaction types
 pub use batch::AtomicBatch;
@@ -87,7 +91,8 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// Prelude module for common imports
 pub mod prelude {
     pub use crate::{
-        AtomicBatch, BoundingBox, Point, Result, SetOptions, SpatioLite, SpatioLiteError,
+        AtomicBatch, BoundingBox, Coordinate, Geometry, Point, Result, SetOptions, SpatioLite,
+        SpatioLiteError,
     };
     pub use std::time::Duration;
 }

@@ -1,14 +1,17 @@
-use spatio_lite::{BoundingBox, Point, SetOptions, SpatioLite};
+use spatio_lite::{
+    BoundingBox, Coordinate, Geometry, GeometryOps, LineString, LinearRing, Point, Polygon,
+    SetOptions, SpatioLite,
+};
 use std::time::Duration;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("🚀 SpatioLite Spatial Demo");
+    println!("🚀 SpatioLite Comprehensive Spatial & Geometry Demo");
 
     // Create an in-memory database
     let db = SpatioLite::memory()?;
 
-    // Spatial point operations
-    println!("\n🌍 Spatial Point Operations:");
+    // === BASIC SPATIAL POINT OPERATIONS ===
+    println!("\n🌍 Basic Spatial Point Operations:");
 
     // Create points for major cities
     let nyc = Point::new(40.7128, -74.0060);
@@ -20,7 +23,81 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     db.insert_point_with_geohash("cities", &london, 10, b"London", None)?;
     db.insert_point_with_geohash("cities", &tokyo, 10, b"Tokyo", None)?;
 
-    println!("Inserted cities with spatial indexing");
+    println!("✓ Inserted cities with spatial indexing");
+
+    // === ADVANCED GEOMETRY OPERATIONS ===
+    println!("\n🔺 Advanced Geometry Operations:");
+
+    // Create a polygon representing Central Park
+    let central_park_coords = vec![
+        Coordinate::new(-73.9733, 40.7644), // SW corner
+        Coordinate::new(-73.9500, 40.7644), // SE corner
+        Coordinate::new(-73.9500, 40.7997), // NE corner
+        Coordinate::new(-73.9733, 40.7997), // NW corner
+        Coordinate::new(-73.9733, 40.7644), // Close the ring
+    ];
+    let central_park_ring = LinearRing::new(central_park_coords)?;
+    let central_park = Polygon::new(central_park_ring);
+
+    // Insert polygon with spatial indexing
+    db.insert_polygon("parks", &central_park, b"Central Park, Manhattan", None)?;
+    println!("✓ Inserted Central Park polygon");
+
+    // Keep a copy for later WKT demo
+    let central_park_copy = central_park.clone();
+
+    // Create a complex polygon with a hole (representing a building with courtyard)
+    let building_exterior = vec![
+        Coordinate::new(-73.9850, 40.7580),
+        Coordinate::new(-73.9820, 40.7580),
+        Coordinate::new(-73.9820, 40.7610),
+        Coordinate::new(-73.9850, 40.7610),
+        Coordinate::new(-73.9850, 40.7580),
+    ];
+    let building_hole = vec![
+        Coordinate::new(-73.9840, 40.7590),
+        Coordinate::new(-73.9830, 40.7590),
+        Coordinate::new(-73.9830, 40.7600),
+        Coordinate::new(-73.9840, 40.7600),
+        Coordinate::new(-73.9840, 40.7590),
+    ];
+
+    let exterior_ring = LinearRing::new(building_exterior)?;
+    let hole_ring = LinearRing::new(building_hole)?;
+    let building_with_courtyard = Polygon::with_holes(exterior_ring, vec![hole_ring]);
+
+    db.insert_polygon(
+        "buildings",
+        &building_with_courtyard,
+        b"Office Building with Courtyard",
+        None,
+    )?;
+    println!("✓ Inserted building polygon with courtyard hole");
+
+    // Create linestring geometries (streets, routes)
+    let broadway_coords = vec![
+        Coordinate::new(-73.9857, 40.7484), // Times Square area
+        Coordinate::new(-73.9867, 40.7505),
+        Coordinate::new(-73.9877, 40.7526),
+        Coordinate::new(-73.9887, 40.7547),
+        Coordinate::new(-73.9897, 40.7568), // Columbus Circle area
+    ];
+    let broadway = LineString::new(broadway_coords)?;
+
+    db.insert_linestring("streets", &broadway, b"Broadway (partial)", None)?;
+    println!("✓ Inserted Broadway street linestring");
+
+    // Create a subway route
+    let subway_coords = vec![
+        Coordinate::new(-73.9857, 40.7589), // 42nd St
+        Coordinate::new(-73.9857, 40.7614), // 47th St
+        Coordinate::new(-73.9857, 40.7640), // 51st St
+        Coordinate::new(-73.9857, 40.7666), // 57th St
+    ];
+    let subway_line = LineString::new(subway_coords)?;
+
+    db.insert_linestring("transit", &subway_line, b"N/Q/R/W Line (partial)", None)?;
+    println!("✓ Inserted subway line");
 
     // Demonstrate geohash generation
     println!("\n🗺️  Geohash Examples:");
@@ -121,6 +198,139 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         intersecting_results.len()
     );
 
+    // === GEOMETRY QUERIES AND ANALYSIS ===
+    println!("\n🔍 Geometry Queries and Analysis:");
+
+    // Test point-in-polygon queries
+    let test_point_in_park = Coordinate::new(-73.9650, 40.7820); // Inside Central Park
+    let test_point_outside = Coordinate::new(-73.9400, 40.7500); // Outside park
+
+    let parks_containing_point = db.geometries_containing_point("parks", &test_point_in_park)?;
+    println!(
+        "✓ Found {} parks containing test point",
+        parks_containing_point.len()
+    );
+
+    let parks_containing_outside = db.geometries_containing_point("parks", &test_point_outside)?;
+    println!(
+        "✓ Found {} parks containing outside point",
+        parks_containing_outside.len()
+    );
+
+    // Bounding box queries
+    let bbox_min = Coordinate::new(-74.0000, 40.7500);
+    let bbox_max = Coordinate::new(-73.9500, 40.8000);
+    let geometries_in_bbox = db.geometries_within_bounds("parks", &bbox_min, &bbox_max)?;
+    println!(
+        "✓ Found {} geometries in bounding box",
+        geometries_in_bbox.len()
+    );
+
+    // Calculate areas and lengths
+    let total_park_area = db.total_polygon_area("parks")?;
+    let total_street_length = db.total_linestring_length("streets")?;
+    let total_transit_length = db.total_linestring_length("transit")?;
+
+    println!("📏 Total park area: {:.6} square degrees", total_park_area);
+    println!("📏 Total street length: {:.6} degrees", total_street_length);
+    println!(
+        "📏 Total transit length: {:.6} degrees",
+        total_transit_length
+    );
+
+    // Nearest geometry queries
+    let query_point = Coordinate::new(-73.9800, 40.7700);
+    if let Some((nearest_key, nearest_geom, distance)) =
+        db.nearest_geometry_distance("parks", &query_point)?
+    {
+        println!(
+            "🎯 Nearest park: {} at distance {:.6}",
+            nearest_key, distance
+        );
+        println!("   Geometry type: {}", nearest_geom.geometry_type());
+    }
+
+    // === GEOMETRY UTILITIES AND OPERATIONS ===
+    println!("\n🛠️  Geometry Utilities:");
+
+    // Create a circular buffer around a point
+    let buffer_center = Coordinate::new(-73.9750, 40.7750);
+    let buffer_polygon = GeometryOps::buffer_point(&buffer_center, 0.005, 16)?; // ~500m radius
+
+    db.insert_polygon("zones", &buffer_polygon, b"Safety Zone", None)?;
+    println!("✓ Created circular buffer zone");
+
+    // Create a rectangular area
+    let rect_polygon = GeometryOps::rectangle(-73.9900, 40.7400, -73.9700, 40.7600)?;
+    db.insert_polygon("zones", &rect_polygon, b"Commercial District", None)?;
+    println!("✓ Created rectangular zone");
+
+    // === GEOMETRY SERIALIZATION AND WKT ===
+    println!("\n💾 Geometry Serialization:");
+
+    // Demonstrate WKT output
+    let point_geom = Geometry::Point(Coordinate::new(-73.9857, 40.7484));
+    println!("Point WKT: {}", point_geom.to_wkt());
+
+    let line_geom = Geometry::LineString(broadway);
+    println!("LineString WKT: {}", line_geom.to_wkt());
+
+    let poly_geom = Geometry::Polygon(central_park_copy);
+    println!("Polygon WKT: {}", poly_geom.to_wkt());
+
+    // Test serialization round-trip
+    db.insert_geometry("test:serialization", &point_geom, None)?;
+    let retrieved_geom = db.get_geometry("test:serialization")?.unwrap();
+    println!(
+        "✓ Geometry serialization round-trip successful: {}",
+        point_geom == retrieved_geom
+    );
+
+    // === LIST ALL GEOMETRIES ===
+    println!("\n📋 Geometry Inventory:");
+
+    let all_parks = db.list_geometries("parks")?;
+    println!("Parks: {} geometries", all_parks.len());
+    for (key, geometry, value) in &all_parks {
+        let value_str = value
+            .as_ref()
+            .map(|v| String::from_utf8_lossy(v).to_string())
+            .unwrap_or_else(|| "No description".to_string());
+        println!("  {} ({}): {}", key, geometry.geometry_type(), value_str);
+    }
+
+    let all_buildings = db.list_geometries("buildings")?;
+    println!("Buildings: {} geometries", all_buildings.len());
+    for (key, geometry, value) in &all_buildings {
+        let value_str = value
+            .as_ref()
+            .map(|v| String::from_utf8_lossy(v).to_string())
+            .unwrap_or_else(|| "No description".to_string());
+        println!(
+            "  {} ({}): {} - Area: {:.8}",
+            key,
+            geometry.geometry_type(),
+            value_str,
+            geometry.area()
+        );
+    }
+
+    let all_streets = db.list_geometries("streets")?;
+    println!("Streets: {} geometries", all_streets.len());
+    for (key, geometry, value) in &all_streets {
+        let value_str = value
+            .as_ref()
+            .map(|v| String::from_utf8_lossy(v).to_string())
+            .unwrap_or_else(|| "No description".to_string());
+        println!(
+            "  {} ({}): {} - Length: {:.8}",
+            key,
+            geometry.geometry_type(),
+            value_str,
+            geometry.length()
+        );
+    }
+
     // Show spatial statistics
     println!("\n📈 Spatial Database Statistics:");
     let spatial_stats = db.spatial_stats()?;
@@ -133,8 +343,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let db_stats = db.stats()?;
     println!("Total keys in database: {}", db_stats.key_count);
 
-    println!("\n✅ Spatial demo completed successfully!");
-    println!("🌍 SpatioLite demonstrated: points, trajectories, spatial indexing, and queries!");
+    println!("✅ Comprehensive geometry demo completed successfully!");
+    println!("🌍 SpatioLite demonstrated:");
+    println!("  • Points, trajectories, and spatial indexing");
+    println!("  • Polygons with holes and complex shapes");
+    println!("  • LineStrings for routes and paths");
+    println!("  • Spatial queries (contains, intersects, within bounds)");
+    println!("  • Geometry operations (buffer, distance, areas)");
+    println!("  • WKT serialization and data persistence");
+    println!("  • Advanced geometry support and analysis");
 
     Ok(())
 }

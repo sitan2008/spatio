@@ -1,5 +1,6 @@
 use crate::batch::AtomicBatch;
 use crate::error::{Result, SpatioLiteError};
+use crate::geometry::{Coordinate, Geometry, GeometryOps, LineString, Polygon};
 use crate::index::IndexManager;
 use crate::persistence::AOFFile;
 use crate::spatial::{BoundingBox, Point, SpatialKey};
@@ -257,8 +258,37 @@ impl DB {
         }
 
         inner.shrinking = true;
-        // Note: For simplicity, just mark as complete without actual shrinking
-        // Real implementation would need more complex AOF manipulation
+
+        // Create a new temporary AOF file for compaction
+        let mut shrink_file = inner.aof_file.as_ref().unwrap().create_shrink_file()?;
+
+        // Write all current live data to the shrink file
+        for (key, item) in &inner.keys {
+            // Skip expired items
+            if let Some(expires_at) = item.expires_at {
+                if expires_at <= std::time::SystemTime::now() {
+                    continue;
+                }
+            }
+
+            // Write the current key-value pair
+            let opts = item.expires_at.map(|expires_at| crate::types::SetOptions {
+                expires_at: Some(expires_at),
+                ttl: None,
+            });
+
+            shrink_file.write_set(&key.clone(), &item.value, opts.as_ref())?;
+        }
+
+        // Flush the shrink file
+        shrink_file.flush()?;
+
+        // Replace the original AOF file with the compacted one
+        let aof_file = inner.aof_file.as_mut().unwrap();
+        aof_file.replace_with_shrink()?;
+
+        // Update size tracking
+        inner.last_aof_size = aof_file.size()?;
         inner.shrinking = false;
 
         Ok(())
@@ -404,9 +434,43 @@ impl DBInner {
                     + (self.last_aof_size * self.config.auto_shrink_percentage as u64 / 100);
 
                 if current_size >= threshold {
-                    // Note: Background shrink would need DB reference
-                    // For now, just update last_aof_size to prevent repeated triggers
-                    self.last_aof_size = current_size;
+                    // Perform actual shrinking
+                    if !self.shrinking {
+                        self.shrinking = true;
+
+                        // Create a new temporary AOF file for compaction
+                        if let Ok(mut shrink_file) = aof_file.create_shrink_file() {
+                            // Write all current live data to the shrink file
+                            for (key, item) in &self.keys {
+                                // Skip expired items
+                                if let Some(expires_at) = item.expires_at {
+                                    if expires_at <= std::time::SystemTime::now() {
+                                        continue;
+                                    }
+                                }
+
+                                // Write the current key-value pair
+                                let opts =
+                                    item.expires_at.map(|expires_at| crate::types::SetOptions {
+                                        expires_at: Some(expires_at),
+                                        ttl: None,
+                                    });
+
+                                let _ =
+                                    shrink_file.write_set(&key.clone(), &item.value, opts.as_ref());
+                            }
+
+                            // Flush and replace
+                            let _ = shrink_file.flush();
+                            if let Some(aof_file) = self.aof_file.as_mut() {
+                                if aof_file.replace_with_shrink().is_ok() {
+                                    self.last_aof_size = aof_file.size().unwrap_or(0);
+                                }
+                            }
+                        }
+
+                        self.shrinking = false;
+                    }
                 }
             }
         }
@@ -748,6 +812,261 @@ impl DB {
         inner.cleanup_expired();
         Ok(())
     }
+
+    // ===== GEOMETRY OPERATIONS =====
+
+    /// Insert a geometry object into the database
+    pub fn insert_geometry(
+        &self,
+        key: impl AsRef<str>,
+        geometry: &Geometry,
+        opts: Option<SetOptions>,
+    ) -> Result<()> {
+        let bytes = geometry.to_bytes()?;
+        self.insert(key.as_ref().as_bytes(), &bytes, opts.clone())?;
+        Ok(())
+    }
+
+    /// Get a geometry object from the database
+    pub fn get_geometry(&self, key: impl AsRef<str>) -> Result<Option<Geometry>> {
+        if let Some(bytes) = self.get(key.as_ref().as_bytes())? {
+            let geometry = Geometry::from_bytes(&bytes)?;
+            Ok(Some(geometry))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Insert a polygon with spatial indexing
+    pub fn insert_polygon(
+        &self,
+        namespace: impl AsRef<str>,
+        polygon: &Polygon,
+        value: &[u8],
+        opts: Option<SetOptions>,
+    ) -> Result<()> {
+        let key = format!("{}:polygon:{}", namespace.as_ref(), uuid::Uuid::new_v4());
+
+        // Store the polygon geometry
+        let geometry = Geometry::Polygon(polygon.clone());
+        self.insert_geometry(&key, &geometry, opts.clone())?;
+
+        // Store associated value if provided
+        if !value.is_empty() {
+            let value_key = format!("{}:value", key);
+            self.insert(value_key, value, opts.clone())?;
+        }
+
+        // Add spatial indexing based on bounds
+        if let Some((min_coord, max_coord)) = polygon.bounds() {
+            let center = Coordinate::new(
+                (min_coord.x + max_coord.x) / 2.0,
+                (min_coord.y + max_coord.y) / 2.0,
+            );
+            let center_point = center.to_point();
+
+            // Use geohash indexing for the polygon center
+            self.insert_point_with_geohash(
+                &format!("{}:spatial", namespace.as_ref()),
+                &center_point,
+                8,
+                key.as_bytes(),
+                opts,
+            )?;
+        }
+
+        Ok(())
+    }
+
+    /// Insert a linestring with spatial indexing
+    pub fn insert_linestring(
+        &self,
+        namespace: impl AsRef<str>,
+        linestring: &LineString,
+        value: &[u8],
+        opts: Option<SetOptions>,
+    ) -> Result<()> {
+        let key = format!("{}:linestring:{}", namespace.as_ref(), uuid::Uuid::new_v4());
+
+        // Store the linestring geometry
+        let geometry = Geometry::LineString(linestring.clone());
+        self.insert_geometry(&key, &geometry, opts.clone())?;
+
+        // Store associated value if provided
+        if !value.is_empty() {
+            let value_key = format!("{}:value", key);
+            self.insert(value_key, value, opts.clone())?;
+        }
+
+        // Add spatial indexing for start and end points
+        if let (Some(start), Some(end)) = (linestring.start_point(), linestring.end_point()) {
+            let start_point = start.to_point();
+            let end_point = end.to_point();
+
+            self.insert_point_with_geohash(
+                &format!("{}:spatial", namespace.as_ref()),
+                &start_point,
+                8,
+                format!("{}:start", key).as_bytes(),
+                opts.clone(),
+            )?;
+
+            self.insert_point_with_geohash(
+                &format!("{}:spatial", namespace.as_ref()),
+                &end_point,
+                8,
+                format!("{}:end", key).as_bytes(),
+                opts,
+            )?;
+        }
+
+        Ok(())
+    }
+
+    /// Query geometries that intersect with a given geometry
+    pub fn intersects_geometry(
+        &self,
+        namespace: impl AsRef<str>,
+        query_geometry: &Geometry,
+    ) -> Result<Vec<(String, Geometry)>> {
+        let inner = self.read()?;
+        let mut results = Vec::new();
+        let pattern = format!("{}:polygon:", namespace.as_ref());
+        let pattern2 = format!("{}:linestring:", namespace.as_ref());
+
+        for (key, item) in &inner.keys {
+            let key_str = String::from_utf8_lossy(key);
+            if key_str.starts_with(&pattern) || key_str.starts_with(&pattern2) {
+                if let Ok(stored_geometry) = Geometry::from_bytes(&item.value) {
+                    if GeometryOps::intersects(query_geometry, &stored_geometry) {
+                        results.push((key_str.to_string(), stored_geometry));
+                    }
+                }
+            }
+        }
+
+        Ok(results)
+    }
+
+    /// Query geometries within a bounding box
+    pub fn geometries_within_bounds(
+        &self,
+        namespace: impl AsRef<str>,
+        min_coord: &Coordinate,
+        max_coord: &Coordinate,
+    ) -> Result<Vec<(String, Geometry)>> {
+        let bbox_polygon =
+            GeometryOps::rectangle(min_coord.x, min_coord.y, max_coord.x, max_coord.y)?;
+        let query_geometry = Geometry::Polygon(bbox_polygon);
+        self.intersects_geometry(namespace, &query_geometry)
+    }
+
+    /// Query geometries that contain a specific point
+    pub fn geometries_containing_point(
+        &self,
+        namespace: impl AsRef<str>,
+        point: &Coordinate,
+    ) -> Result<Vec<(String, Geometry)>> {
+        let inner = self.read()?;
+        let mut results = Vec::new();
+        let pattern = format!("{}:polygon:", namespace.as_ref());
+
+        for (key, item) in &inner.keys {
+            let key_str = String::from_utf8_lossy(key);
+            if key_str.starts_with(&pattern) {
+                if let Ok(geometry) = Geometry::from_bytes(&item.value) {
+                    if geometry.contains_point(point) {
+                        results.push((key_str.to_string(), geometry));
+                    }
+                }
+            }
+        }
+
+        Ok(results)
+    }
+
+    /// Calculate the distance between a point and the nearest geometry
+    pub fn nearest_geometry_distance(
+        &self,
+        namespace: impl AsRef<str>,
+        point: &Coordinate,
+    ) -> Result<Option<(String, Geometry, f64)>> {
+        let inner = self.read()?;
+        let mut min_distance = f64::INFINITY;
+        let mut nearest_geometry = None;
+        let pattern = format!("{}:", namespace.as_ref());
+        let query_point = Geometry::Point(point.clone());
+
+        for (key, item) in &inner.keys {
+            let key_str = String::from_utf8_lossy(key);
+            if key_str.starts_with(&pattern)
+                && (key_str.contains(":polygon:") || key_str.contains(":linestring:"))
+            {
+                if let Ok(geometry) = Geometry::from_bytes(&item.value) {
+                    let distance = GeometryOps::distance(&query_point, &geometry);
+                    if distance < min_distance {
+                        min_distance = distance;
+                        nearest_geometry = Some((key_str.to_string(), geometry));
+                    }
+                }
+            }
+        }
+
+        if let Some((key, geometry)) = nearest_geometry {
+            Ok(Some((key, geometry, min_distance)))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Get all geometries in a namespace with their metadata
+    pub fn list_geometries(
+        &self,
+        namespace: impl AsRef<str>,
+    ) -> Result<Vec<(String, Geometry, Option<Bytes>)>> {
+        let inner = self.read()?;
+        let mut results = Vec::new();
+        let pattern = format!("{}:", namespace.as_ref());
+
+        for (key, item) in &inner.keys {
+            let key_str = String::from_utf8_lossy(key);
+            if key_str.starts_with(&pattern)
+                && (key_str.contains(":polygon:") || key_str.contains(":linestring:"))
+            {
+                if let Ok(geometry) = Geometry::from_bytes(&item.value) {
+                    // Try to get associated value
+                    let value_key = format!("{}:value", key_str);
+                    let value = inner
+                        .keys
+                        .get(value_key.as_bytes())
+                        .map(|item| item.value.clone());
+                    results.push((key_str.to_string(), geometry, value));
+                }
+            }
+        }
+
+        Ok(results)
+    }
+
+    /// Calculate total area of all polygons in a namespace
+    pub fn total_polygon_area(&self, namespace: impl AsRef<str>) -> Result<f64> {
+        let geometries = self.list_geometries(namespace)?;
+        let total_area = geometries
+            .iter()
+            .map(|(_, geometry, _)| geometry.area())
+            .sum();
+        Ok(total_area)
+    }
+
+    /// Calculate total length of all linestrings in a namespace
+    pub fn total_linestring_length(&self, namespace: impl AsRef<str>) -> Result<f64> {
+        let geometries = self.list_geometries(namespace)?;
+        let total_length = geometries
+            .iter()
+            .map(|(_, geometry, _)| geometry.length())
+            .sum();
+        Ok(total_length)
+    }
 }
 
 /// Spatial statistics structure
@@ -856,5 +1175,253 @@ mod tests {
             let stats = db.stats().unwrap();
             assert_eq!(stats.key_count, 2); // key1 and key3
         }
+    }
+
+    #[test]
+    fn test_aof_shrink() {
+        use tempfile::NamedTempFile;
+
+        let temp_file = NamedTempFile::new().unwrap();
+        let db_path = temp_file.path();
+
+        let db = DB::open(db_path).unwrap();
+
+        // Insert some data
+        db.insert("key1", &b"value1"[..], None).unwrap();
+        db.insert("key2", &b"value2"[..], None).unwrap();
+        db.insert("key3", &b"value3"[..], None).unwrap();
+
+        // Delete some data to create "dead" entries in AOF
+        db.delete("key2").unwrap();
+
+        // Force sync to ensure data is written
+        db.sync().unwrap();
+
+        // Get initial AOF size
+        let initial_size = {
+            let inner = db.read().unwrap();
+            inner.aof_file.as_ref().unwrap().size().unwrap()
+        };
+
+        // Perform shrink
+        db.shrink().unwrap();
+
+        // Get size after shrink
+        let final_size = {
+            let inner = db.read().unwrap();
+            inner.aof_file.as_ref().unwrap().size().unwrap()
+        };
+
+        // AOF should be smaller after shrinking (removed deleted key2)
+        assert!(final_size < initial_size);
+
+        // Verify data integrity after shrink
+        assert_eq!(db.get("key1").unwrap().unwrap(), &b"value1"[..]);
+        assert!(db.get("key2").unwrap().is_none()); // Still deleted
+        assert_eq!(db.get("key3").unwrap().unwrap(), &b"value3"[..]);
+    }
+
+    #[test]
+    fn test_aof_shrink_with_expiration() {
+        use tempfile::NamedTempFile;
+
+        let temp_file = NamedTempFile::new().unwrap();
+        let db_path = temp_file.path();
+
+        let db = DB::open(db_path).unwrap();
+
+        // Insert data with short expiration
+        let opts = SetOptions::with_ttl(Duration::from_millis(50));
+        db.insert("expired_key", &b"expired_value"[..], Some(opts))
+            .unwrap();
+
+        // Insert normal data
+        db.insert("normal_key", &b"normal_value"[..], None).unwrap();
+
+        // Wait for expiration
+        std::thread::sleep(Duration::from_millis(100));
+
+        // Perform shrink - should remove expired entries
+        db.shrink().unwrap();
+
+        // Verify expired key is gone and normal key remains
+        assert!(db.get("expired_key").unwrap().is_none());
+        assert_eq!(db.get("normal_key").unwrap().unwrap(), &b"normal_value"[..]);
+    }
+
+    #[test]
+    fn test_auto_shrink_trigger() {
+        use tempfile::NamedTempFile;
+
+        let temp_file = NamedTempFile::new().unwrap();
+        let db_path = temp_file.path();
+
+        let db = DB::open(db_path).unwrap();
+
+        // Set a small auto-shrink threshold for testing
+        let mut config = db.config().unwrap();
+        config.auto_shrink_min_size = 100; // Very small threshold
+        config.auto_shrink_percentage = 50; // Trigger at 50% growth
+        db.set_config(config).unwrap();
+
+        // Insert enough data to trigger auto-shrink
+        for i in 0..100 {
+            db.insert(format!("key{}", i), &b"some_value_here"[..], None)
+                .unwrap();
+        }
+
+        // Delete half the data to create opportunities for shrinking
+        for i in 0..50 {
+            db.delete(format!("key{}", i)).unwrap();
+        }
+
+        // Force sync to update AOF
+        db.sync().unwrap();
+
+        // Simulate background task that would trigger auto-shrink
+        {
+            let mut inner = db.write().unwrap();
+            inner.maybe_auto_shrink();
+        }
+
+        // Verify remaining data is still accessible
+        for i in 50..100 {
+            assert_eq!(
+                db.get(format!("key{}", i)).unwrap().unwrap(),
+                &b"some_value_here"[..]
+            );
+        }
+
+        // Verify deleted data is gone
+        for i in 0..50 {
+            assert!(db.get(format!("key{}", i)).unwrap().is_none());
+        }
+    }
+
+    #[test]
+    fn test_shrink_empty_database() {
+        use tempfile::NamedTempFile;
+
+        let temp_file = NamedTempFile::new().unwrap();
+        let db_path = temp_file.path();
+
+        let db = DB::open(db_path).unwrap();
+
+        // Shrink empty database should not fail
+        db.shrink().unwrap();
+
+        // Should still be able to use database
+        db.insert("test_key", &b"test_value"[..], None).unwrap();
+        assert_eq!(db.get("test_key").unwrap().unwrap(), &b"test_value"[..]);
+    }
+
+    #[test]
+    fn test_shrink_memory_database() {
+        let db = DB::memory().unwrap();
+
+        // Insert some data
+        db.insert("key1", &b"value1"[..], None).unwrap();
+
+        // Shrink memory database should not fail (no AOF file)
+        db.shrink().unwrap();
+
+        // Data should still be accessible
+        assert_eq!(db.get("key1").unwrap().unwrap(), &b"value1"[..]);
+    }
+
+    #[test]
+    fn test_geometry_operations() {
+        use crate::geometry::{Coordinate, Polygon};
+
+        let db = DB::memory().unwrap();
+
+        // Test polygon insertion and retrieval
+        let coords = vec![
+            Coordinate::new(0.0, 0.0),
+            Coordinate::new(1.0, 0.0),
+            Coordinate::new(1.0, 1.0),
+            Coordinate::new(0.0, 1.0),
+            Coordinate::new(0.0, 0.0),
+        ];
+        let ring = crate::geometry::LinearRing::new(coords).unwrap();
+        let polygon = Polygon::new(ring);
+
+        db.insert_polygon("test", &polygon, b"test polygon", None)
+            .unwrap();
+
+        // Test point containment query
+        let test_point = Coordinate::new(0.5, 0.5);
+        let containing_geometries = db.geometries_containing_point("test", &test_point).unwrap();
+        assert!(!containing_geometries.is_empty());
+
+        // Test bounding box query
+        let min_coord = Coordinate::new(-1.0, -1.0);
+        let max_coord = Coordinate::new(2.0, 2.0);
+        let geometries_in_bounds = db
+            .geometries_within_bounds("test", &min_coord, &max_coord)
+            .unwrap();
+        assert!(!geometries_in_bounds.is_empty());
+    }
+
+    #[test]
+    fn test_linestring_operations() {
+        use crate::geometry::{Coordinate, LineString};
+
+        let db = DB::memory().unwrap();
+
+        // Test linestring insertion
+        let coords = vec![
+            Coordinate::new(0.0, 0.0),
+            Coordinate::new(1.0, 1.0),
+            Coordinate::new(2.0, 0.0),
+        ];
+        let linestring = LineString::new(coords).unwrap();
+
+        db.insert_linestring("routes", &linestring, b"route 1", None)
+            .unwrap();
+
+        // Test geometry listing
+        let geometries = db.list_geometries("routes").unwrap();
+        assert_eq!(geometries.len(), 1);
+
+        // Test total length calculation
+        let total_length = db.total_linestring_length("routes").unwrap();
+        assert!(total_length > 0.0);
+    }
+
+    #[test]
+    fn test_geometry_serialization() {
+        use crate::geometry::{Coordinate, Geometry};
+
+        let db = DB::memory().unwrap();
+        let point = Coordinate::new(1.0, 2.0);
+        let geometry = Geometry::Point(point);
+
+        db.insert_geometry("test_geom", &geometry, None).unwrap();
+        let retrieved = db.get_geometry("test_geom").unwrap().unwrap();
+
+        assert_eq!(geometry, retrieved);
+    }
+
+    #[test]
+    fn test_nearest_geometry() {
+        use crate::geometry::{Coordinate, GeometryOps};
+
+        let db = DB::memory().unwrap();
+
+        // Insert a rectangle
+        let rect = GeometryOps::rectangle(0.0, 0.0, 1.0, 1.0).unwrap();
+        db.insert_polygon("shapes", &rect, b"rectangle", None)
+            .unwrap();
+
+        // Find nearest geometry to a point
+        let query_point = Coordinate::new(2.0, 2.0);
+        let nearest = db
+            .nearest_geometry_distance("shapes", &query_point)
+            .unwrap();
+
+        assert!(nearest.is_some());
+        let (_, _, distance) = nearest.unwrap();
+        assert!(distance > 0.0);
     }
 }
