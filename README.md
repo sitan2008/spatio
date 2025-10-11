@@ -1,3 +1,7 @@
+<div align="center">
+
+![SpatioLite Logo](assets/images/logo.png)
+
 # SpatioLite
 
 [![CI](https://github.com/spatiolite/spatiolite/workflows/CI/badge.svg)](https://github.com/spatiolite/spatiolite/actions)
@@ -5,6 +9,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Crates.io](https://img.shields.io/crates/v/spatio_lite.svg)](https://crates.io/crates/spatio_lite)
 [![Documentation](https://docs.rs/spatio_lite/badge.svg)](https://docs.rs/spatio_lite)
+
+</div>
 
 **SpatioLite** is a high-performance, embedded spatio-temporal database designed for modern applications that need to store and query location-based data with temporal components.
 
@@ -34,7 +40,7 @@ spatio_lite = "0.1"
 
 ```rust
 use spatio_lite::{
-    Coordinate, Geometry, GeometryOps, LineString, LinearRing, 
+    Coordinate, Geometry, GeometryOps, LineString, LinearRing,
     Point, Polygon, SetOptions, SpatioLite
 };
 use std::time::Duration;
@@ -53,7 +59,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Advanced geometry support - Polygons
     let park_coords = vec![
         Coordinate::new(-73.9733, 40.7644), // SW corner
-        Coordinate::new(-73.9500, 40.7644), // SE corner  
+        Coordinate::new(-73.9500, 40.7644), // SE corner
         Coordinate::new(-73.9500, 40.7997), // NE corner
         Coordinate::new(-73.9733, 40.7997), // NW corner
         Coordinate::new(-73.9733, 40.7644), // Close the ring
@@ -156,7 +162,7 @@ use spatio_lite::{Coordinate, Geometry, GeometryOps, LineString, LinearRing, Pol
 // Create complex polygons with holes
 let building_exterior = vec![
     Coordinate::new(-73.9850, 40.7580),
-    Coordinate::new(-73.9820, 40.7580), 
+    Coordinate::new(-73.9820, 40.7580),
     Coordinate::new(-73.9820, 40.7610),
     Coordinate::new(-73.9850, 40.7610),
     Coordinate::new(-73.9850, 40.7580), // Close the ring
@@ -165,7 +171,7 @@ let building_exterior = vec![
 let courtyard_hole = vec![
     Coordinate::new(-73.9840, 40.7590),
     Coordinate::new(-73.9830, 40.7590),
-    Coordinate::new(-73.9830, 40.7600), 
+    Coordinate::new(-73.9830, 40.7600),
     Coordinate::new(-73.9840, 40.7600),
     Coordinate::new(-73.9840, 40.7590), // Close the hole
 ];
@@ -299,6 +305,23 @@ SpatioLite is currently in **early development** (v0.1.x). The core functionalit
 - [API Documentation](https://docs.rs/spatio_lite) (Generated from code)
 - [Examples](src/main.rs) - Comprehensive spatial demo
 - [Benchmarks](benches/) - Performance testing suite
+- [Assets](assets/) - Logo and branding materials
+
+### Logo Usage
+
+The SpatioLite logo is available at `assets/images/logo.png`. When using the logo in your own projects or documentation:
+
+```html
+<!-- For web usage -->
+<img src="https://raw.githubusercontent.com/pkvartsianyi/SpatioLite/main/assets/images/logo.png" alt="SpatioLite Logo" width="200">
+```
+
+```markdown
+<!-- For Markdown documentation -->
+![SpatioLite Logo](https://raw.githubusercontent.com/pkvartsianyi/SpatioLite/main/assets/images/logo.png)
+```
+
+Please refer to the [assets directory](assets/) for usage guidelines and additional branding materials.
 
 ## Contributing
 
