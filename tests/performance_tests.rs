@@ -1,10 +1,10 @@
-//! Performance tests for SpatioLite
+//! Performance tests for Spatio
 //!
 //! These tests are designed to be CI-friendly with generous timing thresholds
 //! to account for variable performance in CI environments while still catching
 //! significant performance regressions.
 
-use spatio_lite::{Point, SetOptions, SpatioLite};
+use spatio::{Point, SetOptions, Spatio};
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -12,7 +12,7 @@ use tempfile::NamedTempFile;
 
 #[test]
 fn test_insertion_performance() {
-    let db = SpatioLite::memory().unwrap();
+    let db = Spatio::memory().unwrap();
     let num_inserts = 10000;
 
     let start = Instant::now();
@@ -42,8 +42,8 @@ fn test_insertion_performance() {
 }
 
 #[test]
-fn test_spatial_insertion_performance() {
-    let db = SpatioLite::memory().unwrap();
+fn test_spatial_query_performance() {
+    let db = Spatio::memory().unwrap();
     let num_points = 5000;
 
     let start = Instant::now();
@@ -82,7 +82,7 @@ fn test_spatial_insertion_performance() {
 
 #[test]
 fn test_batch_operation_performance() {
-    let db = SpatioLite::memory().unwrap();
+    let db = Spatio::memory().unwrap();
     let num_batches = 100;
     let items_per_batch = 100;
 
@@ -115,8 +115,8 @@ fn test_batch_operation_performance() {
 }
 
 #[test]
-fn test_read_performance() {
-    let db = SpatioLite::memory().unwrap();
+fn test_ttl_performance() {
+    let db = Spatio::memory().unwrap();
     let num_items = 10000;
 
     // Pre-populate database
@@ -157,8 +157,8 @@ fn test_read_performance() {
 }
 
 #[test]
-fn test_concurrent_write_performance() {
-    let db = Arc::new(SpatioLite::memory().unwrap());
+fn test_concurrent_performance() {
+    let db = Arc::new(Spatio::memory().unwrap());
     let num_threads = 8;
     let writes_per_thread = 1000;
 
@@ -197,7 +197,7 @@ fn test_concurrent_write_performance() {
 
 #[test]
 fn test_concurrent_read_performance() {
-    let db = Arc::new(SpatioLite::memory().unwrap());
+    let db = Arc::new(Spatio::memory().unwrap());
     let num_items = 5000;
     let num_readers = 8;
     let reads_per_reader = 1000;
@@ -241,7 +241,7 @@ fn test_concurrent_read_performance() {
 
 #[test]
 fn test_mixed_workload_performance() {
-    let db = Arc::new(SpatioLite::memory().unwrap());
+    let db = Arc::new(Spatio::memory().unwrap());
     let num_threads = 6;
     let operations_per_thread = 1000;
 
@@ -313,7 +313,7 @@ fn test_persistence_performance() {
     // Test write performance with persistence
     let write_start = Instant::now();
     {
-        let db = SpatioLite::open(path).unwrap();
+        let db = Spatio::open(path).unwrap();
 
         for i in 0..num_items {
             let key = format!("persist_key_{}", i);
@@ -343,7 +343,7 @@ fn test_persistence_performance() {
     // Test read performance after restart
     let read_start = Instant::now();
     {
-        let db = SpatioLite::open(path).unwrap();
+        let db = Spatio::open(path).unwrap();
 
         for i in 0..num_items {
             let key = format!("persist_key_{}", i);
@@ -364,12 +364,12 @@ fn test_persistence_performance() {
 
 #[test]
 fn test_large_dataset_performance() {
-    let _db = SpatioLite::memory().unwrap();
+    let _db = Spatio::memory().unwrap();
     let dataset_sizes = vec![1000, 5000, 10000, 20000];
 
     for &size in &dataset_sizes {
         // Clear previous data by creating a new database
-        let db = SpatioLite::memory().unwrap();
+        let db = Spatio::memory().unwrap();
 
         let insert_start = Instant::now();
         for i in 0..size {
@@ -427,7 +427,7 @@ fn test_large_dataset_performance() {
 
 #[test]
 fn test_ttl_performance_impact() {
-    let db = SpatioLite::memory().unwrap();
+    let db = Spatio::memory().unwrap();
     let num_items = 5000;
 
     // Test without TTL
@@ -490,7 +490,7 @@ fn test_ttl_performance_impact() {
 
 #[test]
 fn test_memory_usage_under_load() {
-    let db = SpatioLite::memory().unwrap();
+    let db = Spatio::memory().unwrap();
 
     // Continuously add and remove data to test memory management
     for cycle in 0..10 {
@@ -528,7 +528,7 @@ fn test_memory_usage_under_load() {
 
 #[test]
 fn test_spatial_query_scaling() {
-    let db = SpatioLite::memory().unwrap();
+    let db = Spatio::memory().unwrap();
     let base_points = 1000;
 
     // Insert spatial data

@@ -1,11 +1,11 @@
 # GitHub Pages Setup Guide
 
-This guide explains how to set up GitHub Pages for the SpatioLite documentation.
+This guide explains how to set up GitHub Pages for the Spatio documentation.
 
 ## Quick Setup
 
 1. **Navigate to your repository settings**
-   - Go to your SpatioLite repository on GitHub
+   - Go to your Spatio repository on GitHub
    - Click the "Settings" tab
 
 2. **Enable GitHub Pages**
@@ -16,7 +16,7 @@ This guide explains how to set up GitHub Pages for the SpatioLite documentation.
 3. **Verify the setup**
    - Push a commit to the `main` branch
    - Check the "Actions" tab to see the documentation workflow running
-   - Once complete, your documentation will be available at: `https://<username>.github.io/SpatioLite/`
+   - Once complete, your documentation will be available at: `https://<username>.github.io/spatio/`
 
 ## Troubleshooting
 

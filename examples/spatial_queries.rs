@@ -1,11 +1,11 @@
-use spatio_lite::{BoundingBox, Point, SpatioLite};
+use spatio::{BoundingBox, Point, Spatio};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("SpatioLite - Spatial Queries Example");
+    println!("Spatio - Spatial Queries Example");
     println!("====================================");
 
     // Create an in-memory database
-    let db = SpatioLite::memory()?;
+    let db = Spatio::memory()?;
     println!("✓ Created in-memory database");
 
     // Sample data: Major world cities with geohash indexing

@@ -16,12 +16,12 @@
 //! ## Quick Start
 //!
 //! ```rust
-//! use spatio_lite::{Point, SetOptions, SpatioLite};
+//! use spatio::{Point, SetOptions, Spatio};
 //! use std::time::Duration;
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create an in-memory database
-//! let db = SpatioLite::memory()?;
+//! let db = Spatio::memory()?;
 //!
 //! // Spatial point operations
 //! let nyc = Point::new(40.7128, -74.0060);
@@ -51,10 +51,10 @@
 //! ## Advanced Geometry Operations
 //!
 //! ```rust
-//! use spatio_lite::{SpatioLite, geometry::{Coordinate, Polygon, LinearRing, GeometryOps}};
+//! use spatio::{Spatio, geometry::{Coordinate, Polygon, LinearRing, GeometryOps}};
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
-//! let db = SpatioLite::memory()?;
+//! let db = Spatio::memory()?;
 //!
 //! // Create a polygon (e.g., a park boundary)
 //! let park_coords = vec![
@@ -86,11 +86,11 @@
 //! ## Trajectory Tracking
 //!
 //! ```rust
-//! use spatio_lite::{SpatioLite, Point, SetOptions};
+//! use spatio::{Spatio, Point, SetOptions};
 //! use std::time::Duration;
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
-//! let db = SpatioLite::memory()?;
+//! let db = Spatio::memory()?;
 //!
 //! // Track a vehicle's movement over time
 //! let vehicle_path = vec![
@@ -124,6 +124,12 @@ pub mod types;
 // Re-export core database types
 pub use db::DB;
 pub use error::{Result, SpatioLiteError};
+
+// Main database type alias
+pub type Spatio = DB;
+
+// Error type alias for consistency
+pub type SpatioError = SpatioLiteError;
 
 // Re-export spatial types and utilities
 pub use spatial::{

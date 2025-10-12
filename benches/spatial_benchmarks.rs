@@ -1,12 +1,12 @@
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
-use spatio_lite::{Point, SetOptions, SpatioLite};
+use spatio::{Point, SetOptions, Spatio};
 use std::sync::atomic::AtomicU64;
 use std::time::Duration;
 
 fn benchmark_basic_operations(c: &mut Criterion) {
     let mut group = c.benchmark_group("basic_operations");
 
-    let db = SpatioLite::memory().unwrap();
+    let db = Spatio::memory().unwrap();
 
     // Benchmark single insert
     group.bench_function("single_insert", |b| {
@@ -51,7 +51,7 @@ fn benchmark_basic_operations(c: &mut Criterion) {
 fn benchmark_spatial_operations(c: &mut Criterion) {
     let mut group = c.benchmark_group("spatial_operations");
 
-    let db = SpatioLite::memory().unwrap();
+    let db = Spatio::memory().unwrap();
 
     // Benchmark spatial point insertion
     group.bench_function("spatial_point_insert", |b| {
@@ -137,7 +137,7 @@ fn benchmark_spatial_operations(c: &mut Criterion) {
 fn benchmark_trajectory_operations(c: &mut Criterion) {
     let mut group = c.benchmark_group("trajectory_operations");
 
-    let db = SpatioLite::memory().unwrap();
+    let db = Spatio::memory().unwrap();
 
     // Benchmark trajectory insertion
     group.bench_function("trajectory_insert", |b| {
@@ -193,7 +193,7 @@ fn benchmark_trajectory_operations(c: &mut Criterion) {
 fn benchmark_concurrent_operations(c: &mut Criterion) {
     let mut group = c.benchmark_group("concurrent_operations");
 
-    let db = std::sync::Arc::new(SpatioLite::memory().unwrap());
+    let db = std::sync::Arc::new(Spatio::memory().unwrap());
 
     // Benchmark concurrent inserts
     group.bench_function("concurrent_inserts", |b| {
@@ -227,7 +227,7 @@ fn benchmark_concurrent_operations(c: &mut Criterion) {
 fn benchmark_ttl_operations(c: &mut Criterion) {
     let mut group = c.benchmark_group("ttl_operations");
 
-    let db = SpatioLite::memory().unwrap();
+    let db = Spatio::memory().unwrap();
 
     // Benchmark TTL insertion
     group.bench_function("ttl_insert", |b| {
@@ -255,7 +255,7 @@ fn benchmark_large_datasets(c: &mut Criterion) {
     group.measurement_time(Duration::from_secs(30));
 
     for dataset_size in [1000, 10000, 100000].iter() {
-        let db = SpatioLite::memory().unwrap();
+        let db = Spatio::memory().unwrap();
 
         // Pre-populate with spatial data
         for i in 0..*dataset_size {
@@ -294,7 +294,7 @@ fn benchmark_persistence(c: &mut Criterion) {
     group.bench_function("aof_write_operations", |b| {
         use tempfile::NamedTempFile;
         let temp_file = NamedTempFile::new().unwrap();
-        let db = SpatioLite::open(temp_file.path()).unwrap();
+        let db = Spatio::open(temp_file.path()).unwrap();
 
         let mut counter = 0;
         b.iter(|| {

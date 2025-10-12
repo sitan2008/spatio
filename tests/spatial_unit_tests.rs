@@ -1,4 +1,4 @@
-use spatio_lite::{
+use spatio::{
     BoundingBox, CoordinateSystem, GeohashUtils, Point, S2Utils, SpatialAnalysis, SpatialKey,
 };
 

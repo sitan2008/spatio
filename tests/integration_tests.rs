@@ -1,10 +1,10 @@
-use spatio_lite::{Config, Rect, SetOptions, SpatioLite, SyncPolicy};
+use spatio::{Config, Rect, SetOptions, Spatio, SyncPolicy};
 use std::time::Duration;
 use tempfile::NamedTempFile;
 
 #[test]
 fn test_basic_usage() {
-    let db = SpatioLite::memory().unwrap();
+    let db = Spatio::memory().unwrap();
 
     // Single atomic insert
     db.insert("location:123", &b"lat:40.7128,lon:-74.0060"[..], None)
@@ -24,7 +24,7 @@ fn test_basic_usage() {
 
 #[test]
 fn test_atomic_batch() {
-    let db = SpatioLite::memory().unwrap();
+    let db = Spatio::memory().unwrap();
 
     // Atomic batch of operations
     db.atomic(|batch| {
@@ -43,7 +43,7 @@ fn test_atomic_batch() {
 
 #[test]
 fn test_ttl() {
-    let db = SpatioLite::memory().unwrap();
+    let db = Spatio::memory().unwrap();
 
     // Insert with TTL
     let opts = SetOptions::with_ttl(Duration::from_millis(100));
@@ -67,7 +67,7 @@ fn test_persistence() {
 
     // Create database with persistence
     {
-        let db = SpatioLite::open(path).unwrap();
+        let db = Spatio::open(path).unwrap();
         db.insert("persistent:key", &b"persistent_value"[..], None)
             .unwrap();
         db.sync().unwrap();
@@ -75,7 +75,7 @@ fn test_persistence() {
 
     // Reopen and verify data persisted
     {
-        let db = SpatioLite::open(path).unwrap();
+        let db = Spatio::open(path).unwrap();
         let value = db.get("persistent:key").unwrap().unwrap();
         assert_eq!(value, &b"persistent_value"[..]);
     }
@@ -105,7 +105,7 @@ fn test_config() {
         ..Default::default()
     };
 
-    let db = SpatioLite::memory().unwrap();
+    let db = Spatio::memory().unwrap();
     db.set_config(config.clone()).unwrap();
 
     let retrieved_config = db.config().unwrap();
@@ -116,7 +116,7 @@ fn test_config() {
 
 #[test]
 fn test_stats() {
-    let db = SpatioLite::memory().unwrap();
+    let db = Spatio::memory().unwrap();
 
     let initial_stats = db.stats().unwrap();
     assert_eq!(initial_stats.key_count, 0);
@@ -131,7 +131,7 @@ fn test_stats() {
 
 #[test]
 fn test_spatio_temporal_workflow() {
-    let db = SpatioLite::memory().unwrap();
+    let db = Spatio::memory().unwrap();
 
     // Simulate UAV tracking with timestamps
     let timestamp_1 = std::time::SystemTime::now();
@@ -186,7 +186,7 @@ fn test_spatio_temporal_workflow() {
 
 #[test]
 fn test_large_batch_operations() {
-    let db = SpatioLite::memory().unwrap();
+    let db = Spatio::memory().unwrap();
 
     // Test larger batch operations
     db.atomic(|batch| {
@@ -213,7 +213,7 @@ fn test_concurrent_access() {
     use std::sync::Arc;
     use std::thread;
 
-    let db = Arc::new(SpatioLite::memory().unwrap());
+    let db = Arc::new(Spatio::memory().unwrap());
     let mut handles = vec![];
 
     // Spawn multiple threads to test concurrent access
@@ -248,7 +248,7 @@ fn test_concurrent_access() {
 
 #[test]
 fn test_edge_cases() {
-    let db = SpatioLite::memory().unwrap();
+    let db = Spatio::memory().unwrap();
 
     // Test empty key/value
     db.insert("", &b""[..], None).unwrap();

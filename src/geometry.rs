@@ -21,7 +21,7 @@
 //! ## Creating Basic Geometries
 //!
 //! ```rust
-//! use spatio_lite::geometry::{Coordinate, LineString, Polygon, LinearRing};
+//! use spatio::geometry::{Coordinate, LineString, Polygon, LinearRing};
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create coordinates
@@ -51,7 +51,7 @@
 //! ## Geometric Operations
 //!
 //! ```rust
-//! use spatio_lite::geometry::{Coordinate, GeometryOps};
+//! use spatio::geometry::{Coordinate, GeometryOps};
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create a circular buffer around a point
@@ -87,7 +87,7 @@ use std::fmt;
 /// # Examples
 ///
 /// ```rust
-/// use spatio_lite::geometry::Coordinate;
+/// use spatio::geometry::Coordinate;
 ///
 /// // 2D coordinate (longitude, latitude)
 /// let empire_state = Coordinate::new(-73.9857, 40.7484);
@@ -117,7 +117,7 @@ impl Coordinate {
     /// # Examples
     ///
     /// ```rust
-    /// use spatio_lite::geometry::Coordinate;
+    /// use spatio::geometry::Coordinate;
     ///
     /// let coord = Coordinate::new(-73.9857, 40.7484);
     /// assert_eq!(coord.x, -73.9857);
@@ -139,7 +139,7 @@ impl Coordinate {
     /// # Examples
     ///
     /// ```rust
-    /// use spatio_lite::geometry::Coordinate;
+    /// use spatio::geometry::Coordinate;
     ///
     /// let mountain = Coordinate::new_3d(-105.0178, 39.7392, 1655.0);
     /// assert_eq!(mountain.z, Some(1655.0));
@@ -161,7 +161,7 @@ impl Coordinate {
     /// # Examples
     ///
     /// ```rust
-    /// use spatio_lite::{Point, geometry::Coordinate};
+    /// use spatio::{Point, geometry::Coordinate};
     ///
     /// let point = Point::new(40.7484, -73.9857); // lat, lon
     /// let coord = Coordinate::from_point(&point);
@@ -180,7 +180,7 @@ impl Coordinate {
     /// # Examples
     ///
     /// ```rust
-    /// use spatio_lite::geometry::Coordinate;
+    /// use spatio::geometry::Coordinate;
     ///
     /// let coord = Coordinate::new(-73.9857, 40.7484);
     /// let point = coord.to_point();
@@ -208,7 +208,7 @@ impl Coordinate {
     /// # Examples
     ///
     /// ```rust
-    /// use spatio_lite::geometry::Coordinate;
+    /// use spatio::geometry::Coordinate;
     ///
     /// let origin = Coordinate::new(0.0, 0.0);
     /// let point = Coordinate::new(3.0, 4.0);
@@ -244,7 +244,7 @@ impl Coordinate {
     /// # Examples
     ///
     /// ```rust
-    /// use spatio_lite::geometry::Coordinate;
+    /// use spatio::geometry::Coordinate;
     ///
     /// let coord_2d = Coordinate::new(1.0, 2.0);
     /// let coord_3d = Coordinate::new_3d(1.0, 2.0, 3.0);

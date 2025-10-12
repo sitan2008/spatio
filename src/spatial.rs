@@ -8,7 +8,7 @@
 //! # Examples
 //!
 //! ```rust
-//! use spatio_lite::spatial::{Point, SpatialKey, CoordinateSystem};
+//! use spatio::spatial::{Point, SpatialKey, CoordinateSystem};
 //!
 //! // Create a point
 //! let point = Point::new(40.7128, -74.0060); // NYC coordinates
@@ -46,7 +46,7 @@ use std::fmt;
 /// # Examples
 ///
 /// ```rust
-/// use spatio_lite::Point;
+/// use spatio::Point;
 ///
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// // Major world cities
@@ -89,7 +89,7 @@ impl Point {
     /// # Examples
     ///
     /// ```rust
-    /// use spatio_lite::Point;
+    /// use spatio::Point;
     ///
     /// // Empire State Building
     /// let empire_state = Point::new(40.7484, -73.9857);
@@ -118,7 +118,7 @@ impl Point {
     /// # Examples
     ///
     /// ```rust
-    /// use spatio_lite::Point;
+    /// use spatio::Point;
     /// use geo::Point as GeoPoint;
     ///
     /// let geo_point = GeoPoint::new(-73.9857, 40.7484);
@@ -171,7 +171,7 @@ impl Point {
     /// # Examples
     ///
     /// ```rust
-    /// use spatio_lite::Point;
+    /// use spatio::Point;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// let statue_of_liberty = Point::new(40.6892, -74.0445);
@@ -219,7 +219,7 @@ impl Point {
     /// # Examples
     ///
     /// ```rust
-    /// use spatio_lite::Point;
+    /// use spatio::Point;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// let golden_gate = Point::new(37.8199, -122.4783);
@@ -274,7 +274,7 @@ impl Point {
     /// # Examples
     ///
     /// ```rust
-    /// use spatio_lite::Point;
+    /// use spatio::Point;
     ///
     /// let new_york = Point::new(40.7128, -74.0060);
     /// let los_angeles = Point::new(34.0522, -118.2437);

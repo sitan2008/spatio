@@ -3,11 +3,11 @@ name: Release
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - "v*.*.*"
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to release (e.g., v0.1.0)'
+        description: "Version to release (e.g., v0.1.0)"
         required: true
         type: string
 
@@ -21,42 +21,42 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-    - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        components: rustfmt, clippy
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
 
-    - name: Cache cargo
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: release-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: release-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-    - name: Check formatting
-      run: cargo fmt --all -- --check
+      - name: Check formatting
+        run: cargo fmt --all -- --check
 
-    - name: Run clippy
-      run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: Run clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
 
-    - name: Run all tests
-      run: cargo test --all-features --verbose
+      - name: Run all tests
+        run: cargo test --all-features --verbose
 
-    - name: Run integration tests
-      run: cargo test --test integration_tests --verbose
+      - name: Run integration tests
+        run: cargo test --test integration_tests --verbose
 
-    - name: Check documentation
-      run: cargo doc --no-deps --all-features
+      - name: Check documentation
+        run: cargo doc --no-deps --all-features
 
-    - name: Verify package can be built
-      run: cargo package --allow-dirty
+      - name: Verify package can be built
+        run: cargo package --allow-dirty
 
   build-binaries:
     name: Build release binaries
@@ -67,59 +67,59 @@ jobs:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            artifact_name: spatio_lite
-            asset_name: spatio_lite-linux-x86_64
+            artifact_name: spatio
+            asset_name: spatio-linux-x86_64
           - os: ubuntu-latest
             target: x86_64-unknown-linux-musl
-            artifact_name: spatio_lite
-            asset_name: spatio_lite-linux-musl-x86_64
+            artifact_name: spatio
+            asset_name: spatio-linux-musl-x86_64
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            artifact_name: spatio_lite.exe
-            asset_name: spatio_lite-windows-x86_64.exe
+            artifact_name: spatio.exe
+            asset_name: spatio-windows-x86_64.exe
           - os: macos-latest
             target: x86_64-apple-darwin
-            artifact_name: spatio_lite
-            asset_name: spatio_lite-macos-x86_64
+            artifact_name: spatio
+            asset_name: spatio-macos-x86_64
           - os: macos-latest
             target: aarch64-apple-darwin
-            artifact_name: spatio_lite
-            asset_name: spatio_lite-macos-aarch64
+            artifact_name: spatio
+            asset_name: spatio-macos-aarch64
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        targets: ${{ matrix.target }}
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
 
-    - name: Install musl tools
-      if: matrix.target == 'x86_64-unknown-linux-musl'
-      run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - name: Install musl tools
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
 
-    - name: Cache cargo
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-    - name: Build release binary
-      run: cargo build --release --target ${{ matrix.target }} --all-features
+      - name: Build release binary
+        run: cargo build --release --target ${{ matrix.target }} --all-features
 
-    - name: Strip binary (Unix)
-      if: matrix.os != 'windows-latest'
-      run: strip target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
+      - name: Strip binary (Unix)
+        if: matrix.os != 'windows-latest'
+        run: strip target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
 
-    - name: Upload binary
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ matrix.asset_name }}
-        path: target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset_name }}
+          path: target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
 
   create-release:
     name: Create GitHub Release
@@ -127,57 +127,57 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-    - name: Download all artifacts
-      uses: actions/download-artifact@v4
-      with:
-        path: artifacts
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
 
-    - name: Get version from tag
-      id: get_version
-      run: |
-        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-          echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
-        else
-          echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-        fi
-
-    - name: Generate changelog
-      id: changelog
-      run: |
-        if [ -f "CHANGELOG.md" ]; then
-          # Extract changelog for this version
-          awk '/^## \[${{ steps.get_version.outputs.version }}\]/{flag=1; next} /^## \[/{flag=0} flag' CHANGELOG.md > release_notes.md
-          if [ ! -s release_notes.md ]; then
-            echo "## Changes" > release_notes.md
-            echo "See [CHANGELOG.md](CHANGELOG.md) for details." >> release_notes.md
+      - name: Get version from tag
+        id: get_version
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
           fi
-        else
-          echo "## Changes" > release_notes.md
-          echo "- Bug fixes and improvements" >> release_notes.md
-          echo "- See commit history for details" >> release_notes.md
-        fi
 
-    - name: Create release
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: ${{ steps.get_version.outputs.version }}
-        name: Release ${{ steps.get_version.outputs.version }}
-        body_path: release_notes.md
-        draft: false
-        prerelease: ${{ contains(steps.get_version.outputs.version, 'alpha') || contains(steps.get_version.outputs.version, 'beta') || contains(steps.get_version.outputs.version, 'rc') }}
-        files: |
-          artifacts/spatio_lite-linux-x86_64/spatio_lite
-          artifacts/spatio_lite-linux-musl-x86_64/spatio_lite
-          artifacts/spatio_lite-windows-x86_64.exe/spatio_lite.exe
-          artifacts/spatio_lite-macos-x86_64/spatio_lite
-          artifacts/spatio_lite-macos-aarch64/spatio_lite
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Generate changelog
+        id: changelog
+        run: |
+          if [ -f "CHANGELOG.md" ]; then
+            # Extract changelog for this version
+            awk '/^## \[${{ steps.get_version.outputs.version }}\]/{flag=1; next} /^## \[/{flag=0} flag' CHANGELOG.md > release_notes.md
+            if [ ! -s release_notes.md ]; then
+              echo "## Changes" > release_notes.md
+              echo "See [CHANGELOG.md](CHANGELOG.md) for details." >> release_notes.md
+            fi
+          else
+            echo "## Changes" > release_notes.md
+            echo "- Bug fixes and improvements" >> release_notes.md
+            echo "- See commit history for details" >> release_notes.md
+          fi
+
+      - name: Create release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.get_version.outputs.version }}
+          name: Release ${{ steps.get_version.outputs.version }}
+          body_path: release_notes.md
+          draft: false
+          prerelease: ${{ contains(steps.get_version.outputs.version, 'alpha') || contains(steps.get_version.outputs.version, 'beta') || contains(steps.get_version.outputs.version, 'rc') }}
+          files: |
+            artifacts/spatio-linux-x86_64/spatio
+            artifacts/spatio-linux-musl-x86_64/spatio
+            artifacts/spatio-windows-x86_64.exe/spatio.exe
+            artifacts/spatio-macos-x86_64/spatio
+            artifacts/spatio-macos-aarch64/spatio
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   publish-crates:
     name: Publish to crates.io
@@ -186,26 +186,26 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, 'alpha') && !contains(github.ref, 'beta') && !contains(github.ref, 'rc')
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
 
-    - name: Cache cargo
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: publish-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: publish-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-    - name: Login to crates.io
-      run: cargo login ${{ secrets.CRATES_IO_TOKEN }}
+      - name: Login to crates.io
+        run: cargo login ${{ secrets.CRATES_IO_TOKEN }}
 
-    - name: Publish to crates.io
-      run: cargo publish --all-features
+      - name: Publish to crates.io
+        run: cargo publish --all-features
 
   docker:
     name: Build and push Docker image
@@ -214,48 +214,48 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-    - name: Login to Docker Hub
-      uses: docker/login-action@v3
-      with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: Login to GitHub Container Registry
-      uses: docker/login-action@v3
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Extract metadata
-      id: meta
-      uses: docker/metadata-action@v5
-      with:
-        images: |
-          spatiolite/spatiolite
-          ghcr.io/${{ github.repository }}
-        tags: |
-          type=ref,event=tag
-          type=semver,pattern={{version}}
-          type=semver,pattern={{major}}.{{minor}}
-          type=semver,pattern={{major}}
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            spatiolite/spatiolite
+            ghcr.io/${{ github.repository }}
+          tags: |
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
 
-    - name: Build and push Docker image
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        platforms: linux/amd64,linux/arm64
-        push: true
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   homebrew:
     name: Update Homebrew formula
@@ -264,13 +264,13 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, 'alpha') && !contains(github.ref, 'beta') && !contains(github.ref, 'rc')
 
     steps:
-    - name: Update Homebrew formula
-      uses: dawidd6/action-homebrew-bump-formula@v3
-      with:
-        token: ${{ secrets.HOMEBREW_TOKEN }}
-        formula: spatiolite
-        tag: ${{ github.ref_name }}
-        revision: ${{ github.sha }}
+      - name: Update Homebrew formula
+        uses: dawidd6/action-homebrew-bump-formula@v3
+        with:
+          token: ${{ secrets.HOMEBREW_TOKEN }}
+          formula: spatiolite
+          tag: ${{ github.ref_name }}
+          revision: ${{ github.sha }}
 
   notify:
     name: Notify release
@@ -279,22 +279,22 @@ jobs:
     if: always()
 
     steps:
-    - name: Notify Discord (Success)
-      if: needs.create-release.result == 'success' && needs.publish-crates.result == 'success'
-      uses: sarisia/actions-status-discord@v1
-      with:
-        webhook: ${{ secrets.DISCORD_WEBHOOK }}
-        status: success
-        title: "SpatioLite Release"
-        description: "✅ Successfully released ${{ github.ref_name }}"
-        color: 0x00ff00
+      - name: Notify Discord (Success)
+        if: needs.create-release.result == 'success' && needs.publish-crates.result == 'success'
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          status: success
+          title: "SpatioLite Release"
+          description: "✅ Successfully released ${{ github.ref_name }}"
+          color: 0x00ff00
 
-    - name: Notify Discord (Failure)
-      if: needs.create-release.result == 'failure' || needs.publish-crates.result == 'failure'
-      uses: sarisia/actions-status-discord@v1
-      with:
-        webhook: ${{ secrets.DISCORD_WEBHOOK }}
-        status: failure
-        title: "SpatioLite Release Failed"
-        description: "❌ Failed to release ${{ github.ref_name }}"
-        color: 0xff0000
+      - name: Notify Discord (Failure)
+        if: needs.create-release.result == 'failure' || needs.publish-crates.result == 'failure'
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          status: failure
+          title: "SpatioLite Release Failed"
+          description: "❌ Failed to release ${{ github.ref_name }}"
+          color: 0xff0000

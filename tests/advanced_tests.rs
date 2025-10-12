@@ -1,4 +1,4 @@
-use spatio_lite::{BoundingBox, Point, SetOptions, SpatioLite};
+use spatio::{BoundingBox, Point, SetOptions, Spatio};
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -6,7 +6,7 @@ use tempfile::NamedTempFile;
 
 #[test]
 fn test_advanced_spatial_operations() {
-    let db = SpatioLite::memory().unwrap();
+    let db = Spatio::memory().unwrap();
 
     // Create a grid of spatial data points
     let mut points = Vec::new();
@@ -52,7 +52,7 @@ fn test_advanced_spatial_operations() {
 
 #[test]
 fn test_trajectory_analysis() {
-    let db = SpatioLite::memory().unwrap();
+    let db = Spatio::memory().unwrap();
 
     // Simulate multiple vehicle trajectories
     let vehicles = vec!["vehicle_001", "vehicle_002", "vehicle_003"];
@@ -94,7 +94,7 @@ fn test_trajectory_analysis() {
 
 #[test]
 fn test_large_scale_concurrent_operations() {
-    let db = Arc::new(SpatioLite::memory().unwrap());
+    let db = Arc::new(Spatio::memory().unwrap());
     let num_threads = 10;
     let operations_per_thread = 1000;
 
@@ -180,7 +180,7 @@ fn test_large_scale_concurrent_operations() {
 
 #[test]
 fn test_ttl_and_expiration_stress() {
-    let db = SpatioLite::memory().unwrap();
+    let db = Spatio::memory().unwrap();
 
     // Insert data with various TTL values
     let _base_time = Instant::now();
@@ -233,7 +233,7 @@ fn test_persistence_integrity() {
 
     // Create initial dataset
     {
-        let db = SpatioLite::open(path).unwrap();
+        let db = Spatio::open(path).unwrap();
 
         // Insert various types of data
         for i in 0..500 {
@@ -270,7 +270,7 @@ fn test_persistence_integrity() {
 
     // Reopen and verify data integrity
     {
-        let db = SpatioLite::open(path).unwrap();
+        let db = Spatio::open(path).unwrap();
 
         // Verify regular key-value pairs
         for i in 0..500 {
@@ -293,7 +293,7 @@ fn test_persistence_integrity() {
 
 #[test]
 fn test_coordinate_edge_cases() {
-    let db = SpatioLite::memory().unwrap();
+    let db = Spatio::memory().unwrap();
 
     // Test extreme coordinate values
     let edge_cases = [
@@ -336,7 +336,7 @@ fn test_coordinate_edge_cases() {
 
 #[test]
 fn test_memory_efficiency() {
-    let db = SpatioLite::memory().unwrap();
+    let db = Spatio::memory().unwrap();
 
     // Insert a large amount of data and monitor memory usage patterns
     let data_points = 10000;
@@ -372,7 +372,7 @@ fn test_memory_efficiency() {
 
 #[test]
 fn test_error_conditions() {
-    let db = SpatioLite::memory().unwrap();
+    let db = Spatio::memory().unwrap();
 
     // Test various error conditions
 
@@ -403,7 +403,7 @@ fn test_error_conditions() {
 
 #[test]
 fn test_spatial_query_performance() {
-    let db = SpatioLite::memory().unwrap();
+    let db = Spatio::memory().unwrap();
 
     // Create a dense spatial dataset
     for i in 0..5000 {
@@ -435,7 +435,7 @@ fn test_spatial_query_performance() {
 
 #[test]
 fn test_bounding_box_operations() {
-    let db = SpatioLite::memory().unwrap();
+    let db = Spatio::memory().unwrap();
 
     // Create test data within known bounds
     let _min_point = Point::new(40.0, -74.5);
@@ -467,7 +467,7 @@ fn test_bounding_box_operations() {
 
 #[test]
 fn test_mixed_operation_patterns() {
-    let db = SpatioLite::memory().unwrap();
+    let db = Spatio::memory().unwrap();
 
     // Simulate a realistic mixed workload
     for i in 0..1000i32 {

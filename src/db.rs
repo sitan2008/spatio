@@ -14,7 +14,7 @@ use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::thread;
 use std::time::{Duration, SystemTime};
 
-/// Main SpatioLite database structure providing thread-safe spatial and temporal data storage.
+/// Main Spatio database structure providing thread-safe spatial and temporal data storage.
 ///
 /// The `DB` struct is the core of SpatioLite, offering:
 /// - Key-value storage with spatial indexing
@@ -29,12 +29,12 @@ use std::time::{Duration, SystemTime};
 ///
 /// ## Basic Usage
 /// ```rust
-/// use spatio_lite::{SpatioLite, Point, SetOptions};
+/// use spatio::{Spatio, Point, SetOptions};
 /// use std::time::Duration;
 ///
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// // Create an in-memory database
-/// let db = SpatioLite::memory()?;
+/// let db = Spatio::memory()?;
 ///
 /// // Store a simple key-value pair
 /// db.insert("key1", b"value1", None)?;
@@ -48,10 +48,10 @@ use std::time::{Duration, SystemTime};
 ///
 /// ## Spatial Operations
 /// ```rust
-/// use spatio_lite::{SpatioLite, Point};
+/// use spatio::{Spatio, Point};
 ///
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// let db = SpatioLite::memory()?;
+/// let db = Spatio::memory()?;
 ///
 /// // Store geographic points
 /// let nyc = Point::new(40.7128, -74.0060);
@@ -69,22 +69,22 @@ use std::time::{Duration, SystemTime};
 ///
 /// ## Trajectory Tracking
 /// ```rust
-/// use spatio_lite::{SpatioLite, Point};
+/// use spatio::{Spatio, Point};
 ///
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// let db = SpatioLite::memory()?;
+/// let db = Spatio::memory()?;
 ///
 /// // Track a vehicle's movement over time
 /// let trajectory = vec![
-///     (Point::new(40.7128, -74.0060), 1640995200), // timestamp: unix epoch
-///     (Point::new(40.7180, -74.0020), 1640995260), // 1 minute later
-///     (Point::new(40.7230, -73.9980), 1640995320), // 2 minutes later
+///     (Point::new(40.7128, -74.0060), 1640995200),
+///     (Point::new(40.7150, -74.0040), 1640995230),
+///     (Point::new(40.7172, -74.0020), 1640995260),
 /// ];
 ///
 /// db.insert_trajectory("vehicle:truck001", &trajectory, None)?;
 ///
 /// // Query trajectory for a time range
-/// let path = db.query_trajectory("vehicle:truck001", 1640995200, 1640995320)?;
+/// let path = db.query_trajectory("vehicle:truck001", 1640995200, 1640995260)?;
 /// println!("Retrieved {} waypoints", path.len());
 /// # Ok(())
 /// # }
@@ -101,11 +101,11 @@ use std::time::{Duration, SystemTime};
 /// For persistent storage, use `SpatioLite::open()` instead of `memory()`:
 ///
 /// ```rust
-/// use spatio_lite::SpatioLite;
+/// use spatio::Spatio;
 ///
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// // Opens existing file or creates new one
-/// let db = SpatioLite::open("my_database.db")?;
+/// let db = Spatio::open("my_data.db")?;
 /// db.insert("persistent_key", b"this_survives_restarts", None)?;
 /// db.sync()?; // Force write to disk
 /// # Ok(())
@@ -174,14 +174,14 @@ impl DB {
     /// # Examples
     ///
     /// ```rust
-    /// use spatio_lite::SpatioLite;
+    /// use spatio::Spatio;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// // Create persistent database
-    /// let db = SpatioLite::open("my_data.db")?;
+    /// let persistent_db = Spatio::open("my_data.db")?;
     ///
     /// // Create in-memory database
-    /// let mem_db = SpatioLite::open(":memory:")?;
+    /// let mem_db = Spatio::open(":memory:")?;
     /// # Ok(())
     /// # }
     /// ```
@@ -233,7 +233,7 @@ impl DB {
         Ok(db)
     }
 
-    /// Creates a new in-memory SpatioLite database.
+    /// Creates a new in-memory Spatio database.
     ///
     /// This is a convenience method equivalent to `SpatioLite::open(":memory:")`.
     /// The database will not persist to disk and all data will be lost when
@@ -242,10 +242,10 @@ impl DB {
     /// # Examples
     ///
     /// ```rust
-    /// use spatio_lite::SpatioLite;
+    /// use spatio::Spatio;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let db = SpatioLite::memory()?;
+    /// let db = Spatio::memory()?;
     /// db.insert("key", b"value", None)?;
     /// # Ok(())
     /// # }
@@ -288,18 +288,18 @@ impl DB {
     /// # Examples
     ///
     /// ```rust
-    /// use spatio_lite::{SpatioLite, SetOptions};
+    /// use spatio::{Spatio, SetOptions};
     /// use std::time::Duration;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let db = SpatioLite::memory()?;
+    /// let db = Spatio::memory()?;
     ///
     /// // Simple insert
     /// db.insert("user:123", b"John Doe", None)?;
     ///
     /// // Insert with TTL
     /// let opts = SetOptions::with_ttl(Duration::from_secs(3600));
-    /// db.insert("session:abc", b"session_data", Some(opts))?;
+    /// db.insert("session:456", b"active", Some(opts))?;
     /// # Ok(())
     /// # }
     /// ```
@@ -425,9 +425,9 @@ impl DB {
     /// # Examples
     ///
     /// ```rust
-    /// use spatio_lite::{SpatioLite, Point};
+    /// use spatio::{Spatio, Point};
     ///
-    /// let db = SpatioLite::memory()?;
+    /// let db = Spatio::memory()?;
     ///
     /// // Insert some points
     /// db.insert_point("locations:nyc", &Point::new(40.7128, -74.0060), None)?;
@@ -896,10 +896,10 @@ impl DB {
     /// # Examples
     ///
     /// ```rust
-    /// use spatio_lite::{SpatioLite, Point};
+    /// use spatio::{Spatio, Point};
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let db = SpatioLite::memory()?;
+    /// let db = Spatio::memory()?;
     ///
     /// let central_park = Point::new(40.7851, -73.9683);
     /// db.insert_point("landmarks:central_park", &central_park, None)?;
@@ -936,17 +936,17 @@ impl DB {
     /// # Examples
     ///
     /// ```rust
-    /// use spatio_lite::{SpatioLite, Point};
+    /// use spatio::{Spatio, Point};
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let db = SpatioLite::memory()?;
+    /// let db = Spatio::memory()?;
     ///
     /// let restaurant = Point::new(40.7580, -73.9855);
     /// db.insert_point_with_geohash(
     ///     "restaurants",
     ///     &restaurant,
-    ///     8,  // ~38m precision
-    ///     b"Joe's Pizza",
+    ///     8,
+    ///     b"Famous Pizza",
     ///     None
     /// )?;
     /// # Ok(())
@@ -1117,10 +1117,10 @@ impl DB {
     /// # Examples
     ///
     /// ```rust
-    /// use spatio_lite::{SpatioLite, Point};
+    /// use spatio::{Spatio, Point};
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let db = SpatioLite::memory()?;
+    /// let db = Spatio::memory()?;
     ///
     /// // Track a delivery vehicle
     /// let trajectory = vec![

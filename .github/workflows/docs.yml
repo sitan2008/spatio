@@ -59,11 +59,11 @@ jobs:
         run: |
           cat > docs/book.toml << 'EOF'
           [book]
-          authors = ["SpatioLite Contributors"]
+          authors = ["Spatio Contributors"]
           language = "en"
           multilingual = false
           src = "src"
-          title = "SpatioLite Documentation"
+          title = "Spatio Documentation"
           description = "Embedded spatio-temporal database documentation"
 
           [preprocessor.mermaid]
@@ -77,8 +77,8 @@ jobs:
           preferred-dark-theme = "navy"
           git-repository-url = "https://github.com/${{ github.repository }}"
           edit-url-template = "https://github.com/${{ github.repository }}/edit/main/docs/{path}"
-          site-url = "/SpatioLite/"
-          cname = "spatiolite.dev"
+          site-url = "/spatio/"
+          cname = "spatio.dev"
 
           [output.html.search]
           enable = true
@@ -149,9 +149,9 @@ jobs:
       - name: Generate introduction
         run: |
           cat > docs/src/introduction.md << 'EOF'
-          # SpatioLite
+          # Spatio
 
-          SpatioLite is a high-performance, embedded spatio-temporal database designed for modern applications that need to store and query location-based data with temporal components.
+          Spatio is a high-performance, embedded spatio-temporal database designed for modern applications that need to store and query location-based data with temporal components.
 
           ## Key Features
 
@@ -171,9 +171,9 @@ jobs:
           ## Quick Start
 
           ```rust
-          use spatio_lite::SpatioLite;
+          use spatio::Spatio;
 
-          let db = SpatioLite::memory()?;
+          let db = Spatio::memory()?;
 
           // Insert location data
           db.insert("drone:001", b"lat:40.7128,lon:-74.0060,alt:100", None)?;
@@ -238,13 +238,13 @@ jobs:
 
           ```toml
           [dependencies]
-          spatio_lite = "0.1"
+          spatio = "0.1"
           ```
 
           ## Basic Example
 
           ```rust
-          use spatio_lite::{SpatioLite, SetOptions};
+          use spatio::{Spatio, SetOptions};
           use std::time::Duration;
 
           fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -414,14 +414,14 @@ jobs:
           # Initialize a new Cargo project
           cargo init --name doc_examples --bin
 
-          # Add spatio_lite as a dependency
-          echo "spatio_lite = { path = \"$GITHUB_WORKSPACE\" }" >> Cargo.toml
+          # Add spatio as a dependency
+          echo "spatio = { path = \"$GITHUB_WORKSPACE\" }" >> Cargo.toml
 
           echo "Testing basic README example..."
 
           # Test 1: Basic example from README
           cat > src/main.rs << 'EXAMPLE_EOF'
-          use spatio_lite::{Point, SetOptions, SpatioLite};
+          use spatio::{Point, SetOptions, Spatio};
           use std::time::Duration;
 
           fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -451,10 +451,10 @@ jobs:
 
           # Test 2: Sensor example
           cat > src/main.rs << 'EXAMPLE_EOF'
-          use spatio_lite::{Point, SpatioLite};
+          use spatio::{Point, Spatio};
 
           fn main() -> Result<(), Box<dyn std::error::Error>> {
-              let db = SpatioLite::memory()?;
+              let db = Spatio::memory()?;
               let sensor_location = Point::new(40.7128, -74.0060);
               db.insert_point_with_geohash("sensors", &sensor_location, 8, b"temp:22.5,humidity:65", None)?;
               let nearby_sensors = db.find_nearest_neighbors("sensors", &sensor_location, 1000.0, 10)?;
@@ -469,10 +469,10 @@ jobs:
 
           # Test 3: Trajectory example
           cat > src/main.rs << 'EXAMPLE_EOF'
-          use spatio_lite::{Point, SpatioLite};
+          use spatio::{Point, Spatio};
 
           fn main() -> Result<(), Box<dyn std::error::Error>> {
-              let db = SpatioLite::memory()?;
+              let db = Spatio::memory()?;
               let trajectory = vec![
                   (Point::new(40.7128, -74.0060), 1640995200),
                   (Point::new(40.7150, -74.0040), 1640995230),
@@ -491,11 +491,11 @@ jobs:
 
           # Test 4: TTL example
           cat > src/main.rs << 'EXAMPLE_EOF'
-          use spatio_lite::{SetOptions, SpatioLite};
+          use spatio::{SetOptions, Spatio};
           use std::time::Duration;
 
           fn main() -> Result<(), Box<dyn std::error::Error>> {
-              let db = SpatioLite::memory()?;
+              let db = Spatio::memory()?;
               let ttl_opts = SetOptions::with_ttl(Duration::from_secs(3600));
               db.insert("analytics:traffic:route_66", b"congestion_level:high", Some(ttl_opts))?;
               let value = db.get("analytics:traffic:route_66")?;
@@ -511,7 +511,7 @@ jobs:
 
           # Test 5: Configuration example
           cat > src/main.rs << 'EXAMPLE_EOF'
-          use spatio_lite::{Config, SpatioLite, SyncPolicy};
+          use spatio::{Config, Spatio, SyncPolicy};
 
           fn main() -> Result<(), Box<dyn std::error::Error>> {
               let config = Config {
@@ -521,7 +521,7 @@ jobs:
                   ..Default::default()
               };
 
-              let db = SpatioLite::memory()?;
+              let db = Spatio::memory()?;
               db.set_config(config)?;
               println!("✅ Configuration example passed!");
               Ok(())

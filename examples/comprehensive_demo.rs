@@ -1,14 +1,14 @@
-use spatio_lite::{
+use spatio::{
     BoundingBox, Coordinate, Geometry, GeometryOps, LineString, LinearRing, Point, Polygon,
-    SetOptions, SpatioLite,
+    SetOptions, Spatio,
 };
 use std::time::Duration;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("SpatioLite Comprehensive Spatial & Geometry Demo");
+    println!("Spatio Comprehensive Spatial & Geometry Demo");
 
     // Create an in-memory database
-    let db = SpatioLite::memory()?;
+    let db = Spatio::memory()?;
 
     // === BASIC SPATIAL POINT OPERATIONS ===
     println!("Basic Spatial Point Operations:");

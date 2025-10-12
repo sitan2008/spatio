@@ -1,5 +1,5 @@
 <p align="center">
-    <a href="https://pkvartsianyi.github.io/spatio-lite/">
+    <a href="https://github.com/pkvartsianyi/spatio">
         <img src="assets/images/logo-min.png" height="60" alt="Spatio Logo">
     </a>
 </p>
@@ -11,9 +11,9 @@
     <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT">
   </a>
   <a href="https://crates.io/crates/spatio">
-    <img src="https://img.shields.io/badge/Rust-%23000000.svg?logo=rust&logoColor=white" alt="Crates.io">
+    <img src="https://img.shields.io/crates/v/spatio.svg" alt="Crates.io">
   </a>
-  <a href="https://docs.rs/spatio_lite">
+  <a href="https://docs.rs/spatio">
     <img src="https://img.shields.io/badge/Docs-Available-blue.svg" alt="Documentation">
   </a>
 </p>
@@ -36,25 +36,25 @@
 
 ## Installation
 
-Add SpatioLite to your `Cargo.toml`:
+Add Spatio to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-spatio_lite = "0.1"
+spatio = "0.1"
 ```
 
 ## Quick Start
 
 ```rust
-use spatio_lite::{
+use spatio::{
     Coordinate, Geometry, GeometryOps, LineString, LinearRing,
-    Point, Polygon, SetOptions, SpatioLite
+    Point, Polygon, SetOptions, Spatio
 };
 use std::time::Duration;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create an in-memory database
-    let db = SpatioLite::memory()?;
+    let db = Spatio::memory()?;
 
     // Basic spatial point operations
     let nyc = Point::new(40.7128, -74.0060);
@@ -125,12 +125,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     db.create_spatial_index("cities")?;
 
     // Persistent database with AOF replay
-    let persistent_db = SpatioLite::open("my_data.db")?;
+    let persistent_db = Spatio::open("my_data.db")?;
     persistent_db.insert("persistent:key", b"persistent_value", None)?;
     persistent_db.sync()?; // Force sync to disk
 
     // Note: Both .db and .aof extensions are supported
-    // let db_alt = SpatioLite::open("data.aof")?;  // Also works
+    // let db_alt = Spatio::open("data.aof")?;  // Also works
 
     Ok(())
 }
@@ -138,7 +138,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ## Examples
 
-SpatioLite includes several focused example programs demonstrating different use cases:
+Spatio includes several focused example programs demonstrating different use cases:
 
 ### Getting Started
 ```bash
@@ -164,7 +164,7 @@ cargo run --example comprehensive_demo
 ```
 Complete feature showcase including all geometry types, spatial operations, and analysis tools.
 
-All examples are self-contained and can be run independently to explore different aspects of SpatioLite's capabilities.
+All examples are self-contained and can be run independently to explore different aspects of Spatio's capabilities.
 
 ## Use Cases
 
@@ -200,7 +200,7 @@ let path = db.query_trajectory("uav:alpha", 1640995200, 1640995260)?;
 Store and query complex geometric shapes:
 
 ```rust
-use spatio_lite::{Coordinate, Geometry, GeometryOps, LineString, LinearRing, Polygon};
+use spatio::{Coordinate, Geometry, GeometryOps, LineString, LinearRing, Polygon};
 
 // Create complex polygons with holes
 let building_exterior = vec![
@@ -255,7 +255,7 @@ db.insert("analytics:traffic:route_66", b"congestion_level:high", Some(ttl_opts)
 
 ## Architecture
 
-SpatioLite is designed with a simple but powerful architecture:
+Spatio is designed with a simple but powerful architecture:
 
 ```
 ┌─────────────────┐
@@ -263,7 +263,7 @@ SpatioLite is designed with a simple but powerful architecture:
 └─────────┬───────┘
           │
 ┌─────────▼───────┐
-│ SpatioLite API  │
+│   Spatio API    │
 └─────────┬───────┘
           │
 ┌─────────▼───────┐    ┌─────────────────┐
@@ -286,7 +286,7 @@ SpatioLite is designed with a simple but powerful architecture:
 
 ## Performance
 
-SpatioLite is optimized for high-throughput scenarios with excellent performance characteristics:
+Spatio is optimized for high-throughput scenarios with excellent performance characteristics:
 
 - **High Throughput**: 1.5M+ operations/second for basic operations
 - **Spatial Performance**: 2M+ spatial insertions/second with automatic indexing
@@ -298,7 +298,7 @@ SpatioLite is optimized for high-throughput scenarios with excellent performance
 
 ## Spatial Indexing
 
-SpatioLite provides advanced spatial indexing capabilities with automatic optimization:
+Spatio provides advanced spatial indexing capabilities with automatic optimization:
 
 ### Automatic Spatial Indexes
 
@@ -323,13 +323,13 @@ let nearby_sensors = db.find_nearest_neighbors("sensors", &point, 500.0, 5)?;
 
 ## API Overview
 
-SpatioLite provides a comprehensive set of APIs for spatial and temporal data operations:
+Spatio provides a comprehensive set of APIs for spatial and temporal data operations:
 
 ### Core Operations
 ```rust
 // Database management
-let db = SpatioLite::memory()?;              // In-memory database
-let db = SpatioLite::open("data.db")?;       // Persistent database
+let db = Spatio::memory()?;              // In-memory database
+let db = Spatio::open("data.db")?;       // Persistent database
 db.sync()?;                                  // Force sync to disk
 db.close()?;                                 // Close database
 
@@ -411,20 +411,20 @@ db.cleanup_expired()?;
 ## Configuration
 
 ```rust
-use spatio_lite::{Config, SyncPolicy};
+use spatio::{Config, SyncPolicy};
 
 let mut config = Config::default();
 config.sync_policy = SyncPolicy::EverySecond;
 config.auto_shrink_percentage = 100;
 config.max_dimensions = 3; // For 3D spatial data
 
-let db = SpatioLite::memory()?;
+let db = Spatio::memory()?;
 db.set_config(config)?;
 ```
 
 ## Development Status
 
-SpatioLite is currently in **early development** (v0.1.x). The core functionality is working, but the API may change before v1.0.
+Spatio is currently in **early development** (v0.1.x). The core functionality is working, but the API may change before v1.0.
 
 ### Implemented
 - [x] In-memory key-value storage
@@ -453,14 +453,14 @@ SpatioLite is currently in **early development** (v0.1.x). The core functionalit
 
 ## Documentation
 
-- [API Documentation](https://docs.rs/spatio_lite) (Generated from code)
+- [API Documentation](https://docs.rs/spatio) (Generated from code)
 - [Examples](examples/) - Multiple focused examples and comprehensive demos
 - [Benchmarks](benches/) - Performance testing suite
 - [Assets](assets/) - Logo and branding materials
 
 ### Logo Usage
 
-The SpatioLite logo is available at `assets/images/logo.png`. When using the logo in your own projects or documentation:
+The Spatio logo is available at `assets/images/logo-min.png`. When using the logo in your own projects or documentation, please maintain appropriate attribution.
 
 ## Contributing
 
@@ -470,8 +470,8 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 ```bash
 # Clone the repository
-git clone https://github.com/pkvartsianyi/SpatioLite.git
-cd SpatioLite
+git clone https://github.com/pkvartsianyi/spatio.git
+cd spatio
 
 # Run all tests
 cargo test
@@ -493,13 +493,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Acknowledgments
 
-SpatioLite is inspired by:
+Spatio is inspired by:
 - [BuntDB](https://github.com/tidwall/buntdb) - Fast embeddable in-memory key/value database in Go
 - [PostGIS](https://postgis.net/) - For spatial database operations
 
 ## Contact
 
-- **Issues**: [GitHub Issues](https://github.com/pkvartsianyi/spatio-lite/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/pkvartsianyi/spatio-lite/discussions)
+- **Issues**: [GitHub Issues](https://github.com/pkvartsianyi/spatio/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/pkvartsianyi/spatio/discussions)
 
 ---

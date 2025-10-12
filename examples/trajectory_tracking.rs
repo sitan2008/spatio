@@ -1,12 +1,12 @@
-use spatio_lite::{Point, SetOptions, SpatioLite};
+use spatio::{Point, SetOptions, Spatio};
 use std::time::Duration;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("SpatioLite - Trajectory Tracking Example");
+    println!("Spatio - Trajectory Tracking Example");
     println!("========================================");
 
     // Create an in-memory database
-    let db = SpatioLite::memory()?;
+    let db = Spatio::memory()?;
     println!("✓ Created in-memory database");
 
     // === VEHICLE TRAJECTORY TRACKING ===

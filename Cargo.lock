@@ -878,7 +878,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "spatio_lite"
+name = "spatio"
 version = "0.1.0"
 dependencies = [
  "bincode",
