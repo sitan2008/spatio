@@ -1,5 +1,5 @@
 <p align="center">
-    <a href="https://github.com/pkvartsianyi/spatio-lite">
+    <a href="https://pkvartsianyi.github.io/spatio-lite/">
         <img src="assets/images/logo-min.png" height="60" alt="Spatio Logo">
     </a>
 </p>
@@ -13,7 +13,7 @@
   <a href="https://crates.io/crates/spatio">
     <img src="https://img.shields.io/badge/Rust-%23000000.svg?logo=rust&logoColor=white" alt="Crates.io">
   </a>
-  <a href="https://pkvartsianyi.github.io/spatio">
+  <a href="https://docs.rs/spatio_lite">
     <img src="https://img.shields.io/badge/Docs-Available-blue.svg" alt="Documentation">
   </a>
 </p>
@@ -120,6 +120,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Spatial queries
     let nearby = db.find_nearest_neighbors("cities", &nyc, 10000.0, 10)?;
     println!("Found {} nearby cities", nearby.len());
+
+    // Create spatial index for faster queries (optional - done automatically)
+    db.create_spatial_index("cities")?;
 
     // Persistent database with AOF replay
     let persistent_db = SpatioLite::open("my_data.db")?;
@@ -285,10 +288,125 @@ SpatioLite is designed with a simple but powerful architecture:
 
 SpatioLite is optimized for high-throughput scenarios with excellent performance characteristics:
 
-- **1M+ operations/second** for in-memory workloads
-- **Sub-millisecond** query latency for indexed data
-- **Memory-efficient** spatial indexing
-- **Atomic batch operations** for consistency without traditional ACID overhead
+- **High Throughput**: 1.5M+ operations/second for basic operations
+- **Spatial Performance**: 2M+ spatial insertions/second with automatic indexing
+- **Low Latency**: Microsecond-level latency for individual operations
+- **Spatial Queries**: Sub-millisecond nearest neighbor search with R-tree indexing
+- **Concurrency**: Thread-safe operations with minimal contention
+- **Persistence**: Fast AOF writes with configurable sync policies
+- **Automatic Optimization**: Spatial indexes created automatically for optimal performance
+
+## Spatial Indexing
+
+SpatioLite provides advanced spatial indexing capabilities with automatic optimization:
+
+### Automatic Spatial Indexes
+
+Spatial indexes are created automatically when you perform spatial queries:
+
+```rust
+// Spatial index is created automatically on first query
+let nearby = db.find_nearest_neighbors("locations", &center_point, 1000.0, 10)?;
+```
+
+### Manual Spatial Index Creation
+
+For optimal performance, create spatial indexes explicitly:
+
+```rust
+// Create spatial index for a data prefix
+db.create_spatial_index("sensors")?;
+
+// Now all spatial queries on "sensors" will use the index
+let nearby_sensors = db.find_nearest_neighbors("sensors", &point, 500.0, 5)?;
+```
+
+## API Overview
+
+SpatioLite provides a comprehensive set of APIs for spatial and temporal data operations:
+
+### Core Operations
+```rust
+// Database management
+let db = SpatioLite::memory()?;              // In-memory database
+let db = SpatioLite::open("data.db")?;       // Persistent database
+db.sync()?;                                  // Force sync to disk
+db.close()?;                                 // Close database
+
+// Basic key-value operations
+db.insert("key", b"value", None)?;           // Insert data
+let value = db.get("key")?;                  // Get data
+db.delete("key")?;                           // Delete data
+```
+
+### Spatial Operations
+```rust
+// Point storage and indexing
+db.insert_point("locations:nyc", &point, None)?;
+db.insert_point_with_geohash("cities", &point, 8, b"data", None)?;
+db.insert_point_with_s2("places", &point, 16, b"data", None)?;
+
+// Spatial queries
+let nearby = db.find_nearest_neighbors("cities", &center, 1000.0, 10)?;
+let within = db.within("locations", &bounding_box)?;
+let intersecting = db.intersects("regions", &area)?;
+
+// Spatial indexing
+db.create_spatial_index("locations")?;       // Manual index creation
+let stats = db.spatial_stats()?;             // Index statistics
+```
+
+### Advanced Geometry
+```rust
+// Polygon operations
+db.insert_polygon("buildings", &polygon, b"metadata", None)?;
+let containing = db.geometries_containing_point("buildings", &point)?;
+let area = db.total_polygon_area("buildings")?;
+
+// LineString operations
+db.insert_linestring("roads", &linestring, b"road_data", None)?;
+let distance = db.nearest_geometry_distance("roads", &point)?;
+
+// Geometry queries
+let geometries = db.geometries_within_bounds("objects", &min_coord, &max_coord)?;
+let intersects = db.intersects_geometry("shapes", &query_geometry)?;
+```
+
+### Trajectory Tracking
+```rust
+// Insert trajectory data
+let trajectory = vec![
+    (Point::new(40.0, -74.0), timestamp1),
+    (Point::new(40.1, -74.1), timestamp2),
+];
+db.insert_trajectory("vehicle:001", &trajectory, None)?;
+
+// Query trajectory by time range
+let path = db.query_trajectory("vehicle:001", start_time, end_time)?;
+```
+
+### Atomic Operations
+```rust
+// Batch operations with atomicity
+db.atomic(|batch| {
+    batch.insert("key1", b"value1", None)?;
+    batch.insert("key2", b"value2", None)?;
+    batch.delete("old_key")?;
+    Ok(())
+})?;
+```
+
+### Time-to-Live (TTL)
+```rust
+use std::time::Duration;
+
+// Insert with TTL
+let opts = SetOptions::with_ttl(Duration::from_secs(3600));
+db.insert("temp:data", b"expires_in_1hour", Some(opts))?;
+
+// Manual cleanup
+db.cleanup_expired()?;
+```
 
 ## Configuration
 
@@ -315,6 +433,7 @@ SpatioLite is currently in **early development** (v0.1.x). The core functionalit
 - [x] AOF persistence with replay and auto-compaction
 - [x] Spatial point operations
 - [x] Geohash and S2 cell indexing
+- [x] R-tree spatial indexing with automatic optimization
 - [x] Trajectory tracking and queries
 - [x] Nearest neighbor search
 - [x] Thread-safe operations
@@ -384,5 +503,3 @@ SpatioLite is inspired by:
 - **Discussions**: [GitHub Discussions](https://github.com/pkvartsianyi/spatio-lite/discussions)
 
 ---
-
-**Built with Rust**
