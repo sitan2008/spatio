@@ -4,6 +4,7 @@
 //! and basic spatial operations.
 
 use crate::error::{Result, SpatioError};
+use geo;
 use geohash;
 use s2::cellid::CellID;
 use serde::{Deserialize, Serialize};
@@ -115,8 +116,15 @@ impl Point {
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// let point = Point::new(40.7128, -74.0060); // NYC
-    /// let geohash = point.to_geohash(8)?;
-    /// println!("NYC geohash: {}", geohash); // e.g., "dr5regw3"
+    ///
+    /// // Different precision levels for different use cases
+    /// let coarse_geohash = point.to_geohash(5)?;  // ~5km precision
+    /// let default_geohash = point.to_geohash(8)?; // ~39m precision (default)
+    /// let fine_geohash = point.to_geohash(10)?;   // ~61cm precision
+    ///
+    /// println!("Coarse: {}", coarse_geohash);   // e.g., "dr5re"
+    /// println!("Default: {}", default_geohash); // e.g., "dr5regw3"
+    /// println!("Fine: {}", fine_geohash);       // e.g., "dr5regw3kg"
     /// # Ok(())
     /// # }
     /// ```

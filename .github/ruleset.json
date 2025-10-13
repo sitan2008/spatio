@@ -2,11 +2,21 @@
   "name": "main-branch-protection",
   "target": "branch",
   "enforcement": "active",
+
+  "bypass_actors": [
+    {
+      "actor_id": 1,
+      "actor_type": "RepositoryRole",
+      "role_name": "admin"
+    }
+  ],
+
   "conditions": {
     "ref_name": {
       "include": ["refs/heads/main", "refs/heads/release/*"]
     }
   },
+
   "rules": [
     {
       "type": "pull_request",
@@ -24,12 +34,8 @@
       "parameters": {
         "strict_required_status_checks_policy": true,
         "required_status_checks": [
-          {
-            "context": "Test Suite"
-          },
-          {
-            "context": "Examples"
-          }
+          { "context": "Test Suite" },
+          { "context": "Examples" }
         ]
       }
     },

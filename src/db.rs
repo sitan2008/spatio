@@ -106,15 +106,40 @@ impl DB {
     /// # }
     /// ```
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
+        Self::open_with_config(path, Config::default())
+    }
+
+    /// Creates a new Spatio database with custom configuration.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - File path for the database (use ":memory:" for in-memory)
+    /// * `config` - Database configuration including geohash precision settings
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use spatio::{Spatio, Config};
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let mut config = Config::default();
+    /// config.geohash_precision = 10; // Higher precision for dense urban areas
+    /// config.geohash_search_precisions = vec![8, 9, 10]; // Custom search precisions
+    ///
+    /// let db = Spatio::open_with_config("my_database.db", config)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn open_with_config<P: AsRef<Path>>(path: P, config: Config) -> Result<Self> {
         let path = path.as_ref();
         let is_memory = path.to_str() == Some(":memory:");
 
         let mut inner = DBInner {
             keys: BTreeMap::new(),
             expirations: BTreeMap::new(),
-            index_manager: IndexManager::new(),
+            index_manager: IndexManager::with_config(&config),
             aof_file: None,
-            config: Config::default(),
+            config,
             closed: false,
             stats: DbStats::default(),
         };
@@ -134,6 +159,11 @@ impl DB {
     /// Creates a new in-memory Spatio database.
     pub fn memory() -> Result<Self> {
         Self::open(":memory:")
+    }
+
+    /// Create an in-memory database with custom configuration
+    pub fn memory_with_config(config: Config) -> Result<Self> {
+        Self::open_with_config(":memory:", config)
     }
 
     /// Get database statistics

@@ -47,6 +47,31 @@
 //! # }
 //! ```
 //!
+//! ## Custom Geohash Configuration
+//!
+//! Configure geohash precision for different spatial requirements:
+//!
+//! ```rust
+//! use spatio::{Spatio, Config};
+//!
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! // Default configuration (precision 8, ~39m accuracy)
+//! let db = Spatio::memory()?;
+//!
+//! // Custom precision (10 = ~61cm accuracy)
+//! let precise_db = Spatio::memory_with_config(
+//!     Config::with_geohash_precision(10)
+//! )?;
+//!
+//! // Manual configuration
+//! let mut config = Config::default();
+//! config.geohash_precision = 6; // ~610m accuracy
+//! config.geohash_search_precisions = vec![5, 6, 7];
+//! let custom_db = Spatio::memory_with_config(config)?;
+//! # Ok(())
+//! # }
+//! ```
+//!
 //! ## Trajectory Tracking
 //!
 //! ```rust
@@ -128,11 +153,14 @@ pub use types::{Config, DbStats, SetOptions, SyncPolicy};
 // Batch operations
 pub use batch::AtomicBatch;
 
+// Geohash configuration constants
+pub use index::{DEFAULT_GEOHASH_PRECISION, DEFAULT_SEARCH_PRECISIONS};
+
 // Version information
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Prelude module for common imports
 pub mod prelude {
-    pub use crate::{BoundingBox, Point, Result, SetOptions, Spatio, SpatioError};
+    pub use crate::{BoundingBox, Config, Point, Result, SetOptions, Spatio, SpatioError};
     pub use std::time::Duration;
 }

@@ -1,5 +1,6 @@
 use crate::error::{Result, SpatioError};
 use crate::spatial::Point;
+use crate::types::Config;
 use bytes::Bytes;
 use geohash;
 use std::collections::HashMap;
@@ -10,6 +11,12 @@ const LARGE_RADIUS_THRESHOLD: f64 = 100_000.0;
 /// Threshold for small dataset size
 const SMALL_DATASET_THRESHOLD: usize = 1000;
 
+/// Default geohash precision for spatial indexing
+pub const DEFAULT_GEOHASH_PRECISION: usize = 8;
+
+/// Default geohash precisions for neighbor search
+pub const DEFAULT_SEARCH_PRECISIONS: &[usize] = &[6, 7, 8];
+
 /// Simplified index manager focused on spatial operations only.
 ///
 /// This manages spatial indexes for efficient geographic queries.
@@ -17,6 +24,10 @@ const SMALL_DATASET_THRESHOLD: usize = 1000;
 pub struct IndexManager {
     /// Spatial indexes organized by prefix
     spatial_indexes: HashMap<String, SpatialIndex>,
+    /// Geohash precision for indexing
+    geohash_precision: usize,
+    /// Geohash precisions to use for neighbor search
+    search_precisions: Vec<usize>,
 }
 
 /// A spatial index for a specific prefix/namespace
@@ -26,10 +37,21 @@ struct SpatialIndex {
 }
 
 impl IndexManager {
-    /// Create a new index manager
+    /// Create a new index manager with default configuration
     pub fn new() -> Self {
         Self {
             spatial_indexes: HashMap::new(),
+            geohash_precision: DEFAULT_GEOHASH_PRECISION,
+            search_precisions: DEFAULT_SEARCH_PRECISIONS.to_vec(),
+        }
+    }
+
+    /// Create a new index manager with custom configuration
+    pub fn with_config(config: &Config) -> Self {
+        Self {
+            spatial_indexes: HashMap::new(),
+            geohash_precision: config.geohash_precision,
+            search_precisions: config.geohash_search_precisions.clone(),
         }
     }
 
@@ -51,7 +73,7 @@ impl IndexManager {
             .or_insert_with(SpatialIndex::new);
 
         let geohash = point
-            .to_geohash(8)
+            .to_geohash(self.geohash_precision)
             .map_err(|_| SpatioError::InvalidGeohash)?;
 
         index.points.insert(geohash, (*point, data.clone()));
@@ -87,8 +109,8 @@ impl IndexManager {
             let mut candidates = std::collections::HashSet::new();
 
             // Try multiple precision levels for better coverage
-            for precision in [6, 7, 8] {
-                if let Ok(center_geohash) = center.to_geohash(precision) {
+            for precision in &self.search_precisions {
+                if let Ok(center_geohash) = center.to_geohash(*precision) {
                     candidates.insert(center_geohash.clone());
 
                     // Add neighbors at this precision
@@ -197,8 +219,8 @@ impl IndexManager {
         let mut candidates = std::collections::HashSet::new();
 
         // Try multiple precision levels for better coverage
-        for precision in [6, 7, 8] {
-            if let Ok(center_geohash) = center.to_geohash(precision) {
+        for precision in &self.search_precisions {
+            if let Ok(center_geohash) = center.to_geohash(*precision) {
                 candidates.insert(center_geohash.clone());
 
                 // Add neighbors at this precision
@@ -293,8 +315,8 @@ impl IndexManager {
         let mut candidates = std::collections::HashSet::new();
 
         // Try multiple precision levels for better coverage
-        for precision in [6, 7, 8] {
-            if let Ok(center_geohash) = center.to_geohash(precision) {
+        for precision in &self.search_precisions {
+            if let Ok(center_geohash) = center.to_geohash(*precision) {
                 candidates.insert(center_geohash.clone());
 
                 // Add neighbors at this precision
@@ -347,7 +369,7 @@ impl IndexManager {
     pub fn remove_point(&mut self, prefix: &str, point: &Point) -> Result<()> {
         if let Some(index) = self.spatial_indexes.get_mut(prefix) {
             let geohash = point
-                .to_geohash(8)
+                .to_geohash(self.geohash_precision)
                 .map_err(|_| SpatioError::InvalidGeohash)?;
             index.points.remove(&geohash);
         }
@@ -388,5 +410,111 @@ pub struct IndexStats {
 impl Default for IndexManager {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::spatial::Point;
+    use bytes::Bytes;
+
+    #[test]
+    fn test_default_geohash_precision() {
+        let manager = IndexManager::new();
+        assert_eq!(manager.geohash_precision, DEFAULT_GEOHASH_PRECISION);
+        assert_eq!(manager.search_precisions, DEFAULT_SEARCH_PRECISIONS);
+    }
+
+    #[test]
+    fn test_custom_geohash_precision() {
+        let config = Config {
+            geohash_precision: 10,
+            geohash_search_precisions: vec![8, 9, 10],
+            ..Default::default()
+        };
+
+        let manager = IndexManager::with_config(&config);
+        assert_eq!(manager.geohash_precision, 10);
+        assert_eq!(manager.search_precisions, vec![8, 9, 10]);
+    }
+
+    #[test]
+    fn test_insert_and_remove_with_custom_precision() -> Result<()> {
+        let config = Config {
+            geohash_precision: 6, // Lower precision for testing
+            ..Default::default()
+        };
+
+        let mut manager = IndexManager::with_config(&config);
+        let point = Point::new(40.7128, -74.0060);
+        let data = Bytes::from("test_data");
+
+        // Insert point
+        manager.insert_point("test", &point, &data)?;
+
+        // Verify it exists
+        let nearby = manager.find_nearby("test", &point, 1000.0, 10)?;
+        assert_eq!(nearby.len(), 1);
+
+        // Remove point
+        manager.remove_point("test", &point)?;
+
+        // Verify it's gone
+        let nearby_after = manager.find_nearby("test", &point, 1000.0, 10)?;
+        assert_eq!(nearby_after.len(), 0);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_search_with_different_precisions() -> Result<()> {
+        // Test with single precision
+        let config1 = Config {
+            geohash_search_precisions: vec![7],
+            ..Default::default()
+        };
+        let mut manager1 = IndexManager::with_config(&config1);
+
+        // Test with multiple precisions
+        let config2 = Config {
+            geohash_search_precisions: vec![6, 7, 8, 9],
+            ..Default::default()
+        };
+        let mut manager2 = IndexManager::with_config(&config2);
+
+        let point = Point::new(40.7128, -74.0060);
+        let data = Bytes::from("test_data");
+
+        // Insert into both managers
+        manager1.insert_point("test", &point, &data)?;
+        manager2.insert_point("test", &point, &data)?;
+
+        // Both should find the point
+        let results1 = manager1.find_nearby("test", &point, 1000.0, 10)?;
+        let results2 = manager2.find_nearby("test", &point, 1000.0, 10)?;
+
+        assert_eq!(results1.len(), 1);
+        assert_eq!(results2.len(), 1);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_constants_are_reasonable() {
+        // Ensure constants are within valid geohash precision range
+        assert!((1..=12).contains(&DEFAULT_GEOHASH_PRECISION));
+
+        for &precision in DEFAULT_SEARCH_PRECISIONS {
+            assert!((1..=12).contains(&precision));
+        }
+
+        // Ensure search precisions include the default precision or are around it
+        assert!(
+            DEFAULT_SEARCH_PRECISIONS.contains(&DEFAULT_GEOHASH_PRECISION)
+                || DEFAULT_SEARCH_PRECISIONS
+                    .iter()
+                    .any(|&p| (p as i32 - DEFAULT_GEOHASH_PRECISION as i32).abs() <= 1)
+        );
     }
 }

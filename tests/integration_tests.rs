@@ -1,4 +1,4 @@
-use spatio::{Point, SetOptions, Spatio};
+use spatio::{Config, Point, SetOptions, Spatio};
 use std::time::Duration;
 use tempfile::NamedTempFile;
 
@@ -285,4 +285,45 @@ fn test_point_spatial_methods() {
     // Test within_bounds
     assert!(nyc.within_bounds(40.0, -75.0, 41.0, -73.0)); // NYC within NYC area bounds
     assert!(!london.within_bounds(40.0, -75.0, 41.0, -73.0)); // London not within NYC area bounds
+}
+
+#[test]
+fn test_geohash_precision_configuration() {
+    // Test different geohash configurations
+    let custom_config = Config::with_geohash_precision(10);
+    let default_config = Config::default();
+
+    // Verify configurations have expected values
+    assert_eq!(custom_config.geohash_precision, 10);
+    assert_eq!(default_config.geohash_precision, 8);
+
+    // Create databases with different configurations
+    let custom_db = Spatio::memory_with_config(custom_config).unwrap();
+    let default_db = Spatio::memory_with_config(default_config).unwrap();
+
+    // Test that both configurations work with spatial operations
+    let point = Point::new(40.7128, -74.0060);
+    let data = b"New York City";
+
+    // Insert points into both databases
+    custom_db
+        .insert_point("cities", &point, data, None)
+        .unwrap();
+    default_db
+        .insert_point("cities", &point, data, None)
+        .unwrap();
+
+    // Test spatial queries work with both configurations
+    let custom_nearby = custom_db.find_nearby("cities", &point, 1000.0, 10).unwrap();
+    let default_nearby = default_db
+        .find_nearby("cities", &point, 1000.0, 10)
+        .unwrap();
+
+    // Both should find the inserted point
+    assert_eq!(custom_nearby.len(), 1);
+    assert_eq!(default_nearby.len(), 1);
+
+    // Test contains_point queries work with both configurations
+    assert!(custom_db.contains_point("cities", &point, 100.0).unwrap());
+    assert!(default_db.contains_point("cities", &point, 100.0).unwrap());
 }

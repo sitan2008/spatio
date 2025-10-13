@@ -19,12 +19,52 @@ impl Default for SyncPolicy {
 }
 
 /// Simplified database configuration
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Config {
     /// How often data is synced to disk
     pub sync_policy: SyncPolicy,
     /// Default TTL for items (None means no default TTL)
     pub default_ttl: Option<Duration>,
+    /// Geohash precision for spatial indexing (1-12, default: 8)
+    pub geohash_precision: usize,
+    /// Geohash precisions to use for neighbor search (default: [6, 7, 8])
+    pub geohash_search_precisions: Vec<usize>,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            sync_policy: SyncPolicy::EverySecond,
+            default_ttl: None,
+            geohash_precision: 8,
+            geohash_search_precisions: vec![6, 7, 8],
+        }
+    }
+}
+
+impl Config {
+    /// Create a configuration with custom geohash precision.
+    /// Automatically sets appropriate search precisions around the main precision.
+    pub fn with_geohash_precision(precision: usize) -> Self {
+        let search_precisions = if precision <= 2 {
+            vec![1, 2, 3]
+        } else if precision >= 11 {
+            vec![9, 10, 11, 12]
+        } else {
+            vec![
+                precision.saturating_sub(2),
+                precision.saturating_sub(1),
+                precision,
+            ]
+        };
+
+        Self {
+            sync_policy: SyncPolicy::EverySecond,
+            default_ttl: None,
+            geohash_precision: precision,
+            geohash_search_precisions: search_precisions,
+        }
+    }
 }
 
 /// Options for setting values
