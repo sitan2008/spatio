@@ -1,10 +1,10 @@
 # Assets
 
-This directory contains branding materials and visual assets for SpatioLite.
+This directory contains branding materials and visual assets for Spatio.
 
 ## Logo
 
-The SpatioLite logo is available in the following formats:
+The Spatio logo is available in the following formats:
 
 ### Primary Logo
 - **File**: `images/logo.png`
@@ -13,11 +13,11 @@ The SpatioLite logo is available in the following formats:
 - **Recommended use**: Headers, documentation, GitHub README
 
 ### Alternative References
-For projects that reference the SpatioLite logo:
+For projects that reference the Spatio logo:
 
 **GitHub Raw URL** (for external documentation):
 ```
-https://raw.githubusercontent.com/pkvartsianyi/SpatioLite/main/assets/images/logo.png
+https://raw.githubusercontent.com/pkvartsianyi/Spatio/main/assets/images/logo.png
 ```
 
 **Relative Path** (for internal documentation):

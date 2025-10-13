@@ -1,4 +1,4 @@
-use crate::error::{Result, SpatioLiteError};
+use crate::error::{Result, SpatioError};
 use crate::types::{IndexOptions, IndexType, LessFunc, Rect, RectFunc};
 use bytes::Bytes;
 use geohash;
@@ -214,7 +214,7 @@ impl Index {
 
                 Ok(results)
             }
-            None => Err(SpatioLiteError::InvalidOperation(
+            None => Err(SpatioError::InvalidOperation(
                 "Range query not supported on spatial indexes".to_string(),
             )),
         }
@@ -240,7 +240,7 @@ impl Index {
 
                 Ok(results)
             }
-            None => Err(SpatioLiteError::InvalidOperation(
+            None => Err(SpatioError::InvalidOperation(
                 "Spatial query not supported on B-tree indexes".to_string(),
             )),
         }
@@ -280,7 +280,7 @@ impl Index {
 
                 Ok(results)
             }
-            None => Err(SpatioLiteError::InvalidOperation(
+            None => Err(SpatioError::InvalidOperation(
                 "Nearest neighbor query requires R-tree index".to_string(),
             )),
         }
@@ -325,7 +325,7 @@ impl IndexManager {
         options: IndexOptions,
     ) -> Result<()> {
         if self.indexes.contains_key(&name) {
-            return Err(SpatioLiteError::IndexExists(name));
+            return Err(SpatioError::IndexExists(name));
         }
 
         let index = Index::new_btree(name.clone(), pattern, less_func, options);
@@ -343,7 +343,7 @@ impl IndexManager {
         options: IndexOptions,
     ) -> Result<()> {
         if self.indexes.contains_key(&name) {
-            return Err(SpatioLiteError::IndexExists(name));
+            return Err(SpatioError::IndexExists(name));
         }
 
         let index = Index::new_rtree(name.clone(), pattern, rect_func, options);
@@ -357,7 +357,7 @@ impl IndexManager {
         if self.indexes.remove(name).is_some() {
             Ok(())
         } else {
-            Err(SpatioLiteError::IndexNotFound(name.to_string()))
+            Err(SpatioError::IndexNotFound(name.to_string()))
         }
     }
 

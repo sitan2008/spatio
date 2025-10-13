@@ -194,7 +194,7 @@ jobs:
 
           ```mermaid
           graph TD
-              A[Application] --> B[SpatioLite API]
+              A[Application] --> B[Spatio API]
               B --> C[Transaction Layer]
               C --> D[Storage Engine]
               D --> E[B-Tree Index]
@@ -210,7 +210,7 @@ jobs:
 
           ## Performance
 
-          SpatioLite is designed for high-throughput scenarios:
+          Spatio is designed for high-throughput scenarios:
 
           - **1M+ operations/second** for in-memory workloads
           - **Sub-millisecond** query latency for indexed data
@@ -230,11 +230,11 @@ jobs:
           cat > docs/src/guides/getting-started.md << 'EOF'
           # Getting Started
 
-          This guide will help you get up and running with SpatioLite quickly.
+          This guide will help you get up and running with Spatio quickly.
 
           ## Installation
 
-          Add SpatioLite to your `Cargo.toml`:
+          Add Spatio to your `Cargo.toml`:
 
           ```toml
           [dependencies]
@@ -249,7 +249,7 @@ jobs:
 
           fn main() -> Result<(), Box<dyn std::error::Error>> {
               // Create an in-memory database
-              let db = SpatioLite::memory()?;
+              let db = Spatio::memory()?;
 
               // Insert some data
               db.insert("location:paris", b"48.8566,2.3522", None)?;
@@ -272,13 +272,13 @@ jobs:
           ### In-Memory Database
 
           ```rust
-          let db = SpatioLite::memory()?;
+          let db = Spatio::memory()?;
           ```
 
           ### Persistent Database
 
           ```rust
-          let db = SpatioLite::open("my_database.db")?;
+          let db = Spatio::open("my_database.db")?;
           ```
 
           ## Next Steps
@@ -425,7 +425,7 @@ jobs:
           use std::time::Duration;
 
           fn main() -> Result<(), Box<dyn std::error::Error>> {
-              let db = SpatioLite::memory()?;
+              let db = Spatio::memory()?;
               let nyc = Point::new(40.7128, -74.0060);
               db.insert_point("location:nyc", &nyc, None)?;
               db.insert_point_with_geohash("cities", &nyc, 8, b"New York City", None)?;
@@ -558,7 +558,7 @@ jobs:
             "language": "en",
             "words": [
               "spatio",
-              "SpatioLite",
+              "Spatio",
               "geospatial",
               "rtree",
               "btree",
@@ -641,7 +641,7 @@ jobs:
           if [[ "${{ needs.docs.result }}" == "success" ]]; then
             echo "✅ Documentation built successfully" >> doc_summary.md
             if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-              echo "📖 Documentation deployed to: https://${{ github.repository_owner }}.github.io/SpatioLite/" >> doc_summary.md
+              echo "📖 Documentation deployed to: https://${{ github.repository_owner }}.github.io/Spatio/" >> doc_summary.md
             fi
           else
             echo "❌ Documentation build failed" >> doc_summary.md

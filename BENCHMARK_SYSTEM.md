@@ -1,10 +1,10 @@
 # 📊 Spatio Benchmark System
 
-A comprehensive, automated benchmark generation system that creates dynamic performance documentation for the SpatioLite project.
+A comprehensive, automated benchmark generation system that creates dynamic performance documentation for the Spatio project.
 
 ## 🎯 Overview
 
-The SpatioLite Benchmark System automatically:
+The Spatio Benchmark System automatically:
 - ✅ Runs comprehensive performance tests using Criterion.rs
 - ✅ Generates formatted performance tables with system information
 - ✅ Updates README.md with current benchmark results
@@ -225,7 +225,7 @@ grep "Single Insert" BENCHMARK_RESULTS.md
 
 ## 📊 Performance Expectations
 
-Based on the sample data, SpatioLite achieves:
+Based on the sample data, Spatio achieves:
 
 - **🚀 Basic Operations**: 2-3M ops/sec with sub-microsecond latency
 - **📍 Spatial Inserts**: 2M+ ops/sec with automatic indexing
@@ -266,6 +266,6 @@ The benchmark system is successful when:
 
 ---
 
-**Built with ❤️ for the SpatioLite project**
+**Built with ❤️ for the Spatio project**
 
 *For questions or improvements, see the individual script files or run `./scripts/benchmark_help.sh`*

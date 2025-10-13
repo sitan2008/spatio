@@ -338,7 +338,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Total keys in database: {}", db_stats.key_count);
 
     println!("Comprehensive geometry demo completed successfully!");
-    println!("SpatioLite demonstrated:");
+    println!("Spatio demonstrated:");
     println!("Points, trajectories, and spatial indexing");
     println!("Polygons with holes and complex shapes");
     println!("LineStrings for routes and paths");

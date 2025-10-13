@@ -1,4 +1,4 @@
-//! Spatial utilities and coordinate systems for SpatioLite
+//! Spatial utilities and coordinate systems for Spatio
 //!
 //! This module provides integration with popular geospatial libraries:
 //! - `geo` for geometric operations and coordinate handling
@@ -21,7 +21,7 @@
 //! let key = SpatialKey::geohash("location", &geohash);
 //! ```
 
-use crate::error::{Result, SpatioLiteError};
+use crate::error::{Result, SpatioError};
 use crate::types::Rect;
 use geo::{Coord, LineString, Point as GeoPoint, Polygon};
 use geohash::{decode, encode, Direction};
@@ -109,7 +109,7 @@ impl Point {
     /// Creates a point from a `geo::Point`.
     ///
     /// This method provides interoperability with the `geo` crate,
-    /// allowing easy conversion from `geo` types to SpatioLite points.
+    /// allowing easy conversion from `geo` types to Spatio points.
     ///
     /// # Arguments
     ///
@@ -196,7 +196,7 @@ impl Point {
             },
             precision,
         )
-        .map_err(|_| SpatioLiteError::InvalidOperation("Invalid geohash precision".to_string()))
+        .map_err(|_| SpatioError::InvalidOperation("Invalid geohash precision".to_string()))
     }
 
     /// Generates an S2 cell ID for this point at the specified level.
@@ -243,7 +243,7 @@ impl Point {
     /// full S2 features, consider using the dedicated `s2` crate.
     pub fn to_s2_cell(&self, level: u8) -> Result<u64> {
         if level > 30 {
-            return Err(SpatioLiteError::InvalidOperation(
+            return Err(SpatioError::InvalidOperation(
                 "S2 level must be <= 30".to_string(),
             ));
         }
@@ -359,7 +359,7 @@ impl BoundingBox {
         point.within_bounds(self.min.lat, self.min.lon, self.max.lat, self.max.lon)
     }
 
-    /// Convert to SpatioLite Rect for indexing
+    /// Convert to Spatio Rect for indexing
     pub fn to_rect(&self) -> Rect {
         Rect::new(
             vec![self.min.lat, self.min.lon],
@@ -476,7 +476,7 @@ impl GeohashUtils {
     /// Decode a geohash back to coordinates
     pub fn decode(hash: &str) -> Result<Point> {
         let (coord, _lat_err, _lon_err) = decode(hash)
-            .map_err(|_| SpatioLiteError::InvalidOperation("Invalid geohash".to_string()))?;
+            .map_err(|_| SpatioError::InvalidOperation("Invalid geohash".to_string()))?;
         Ok(Point::new(coord.y, coord.x))
     }
 
@@ -521,7 +521,7 @@ impl GeohashUtils {
     /// Get bounding box for a geohash
     pub fn bounding_box(hash: &str) -> Result<BoundingBox> {
         let (coord, lat_err, lon_err) = decode(hash)
-            .map_err(|_| SpatioLiteError::InvalidOperation("Invalid geohash".to_string()))?;
+            .map_err(|_| SpatioError::InvalidOperation("Invalid geohash".to_string()))?;
 
         let min_lat = coord.y - lat_err;
         let max_lat = coord.y + lat_err;

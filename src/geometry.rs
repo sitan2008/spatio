@@ -1,4 +1,4 @@
-//! Geometry types and operations for SpatioLite.
+//! Geometry types and operations for Spatio.
 //!
 //! This module provides comprehensive support for geometric objects including
 //! points, lines, polygons, and complex geometries. It offers:
@@ -66,7 +66,7 @@
 //! # }
 //! ```
 
-use crate::error::{Result, SpatioLiteError};
+use crate::error::{Result, SpatioError};
 use crate::spatial::Point;
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
@@ -275,12 +275,12 @@ pub struct LinearRing {
 impl LinearRing {
     pub fn new(coordinates: Vec<Coordinate>) -> Result<Self> {
         if coordinates.len() < 4 {
-            return Err(SpatioLiteError::Invalid);
+            return Err(SpatioError::Invalid);
         }
 
         // Check if ring is closed
         if coordinates.first() != coordinates.last() {
-            return Err(SpatioLiteError::Invalid);
+            return Err(SpatioError::Invalid);
         }
 
         Ok(Self { coordinates })
@@ -362,7 +362,7 @@ pub struct LineString {
 impl LineString {
     pub fn new(coordinates: Vec<Coordinate>) -> Result<Self> {
         if coordinates.len() < 2 {
-            return Err(SpatioLiteError::Invalid);
+            return Err(SpatioError::Invalid);
         }
         Ok(Self { coordinates })
     }
@@ -398,7 +398,7 @@ impl LineString {
 
     pub fn to_linear_ring(&self) -> Result<LinearRing> {
         if !self.is_closed() {
-            return Err(SpatioLiteError::Invalid);
+            return Err(SpatioError::Invalid);
         }
         LinearRing::new(self.coordinates.clone())
     }
@@ -476,7 +476,7 @@ impl Polygon {
 
     pub fn from_coordinates(coordinates: Vec<Vec<Coordinate>>) -> Result<Self> {
         if coordinates.is_empty() {
-            return Err(SpatioLiteError::Invalid);
+            return Err(SpatioError::Invalid);
         }
 
         let exterior = LinearRing::new(coordinates[0].clone())?;
@@ -625,14 +625,14 @@ impl Geometry {
     /// Serialize geometry to bytes for storage
     pub fn to_bytes(&self) -> Result<Bytes> {
         let serialized =
-            bincode::serialize(self).map_err(|e| SpatioLiteError::Serialization(e.to_string()))?;
+            bincode::serialize(self).map_err(|e| SpatioError::Serialization(e.to_string()))?;
         Ok(Bytes::from(serialized))
     }
 
     /// Deserialize geometry from bytes
     pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
-        let geometry: Geometry = bincode::deserialize(bytes)
-            .map_err(|e| SpatioLiteError::Deserialization(e.to_string()))?;
+        let geometry: Geometry =
+            bincode::deserialize(bytes).map_err(|e| SpatioError::Deserialization(e.to_string()))?;
         Ok(geometry)
     }
 
@@ -701,7 +701,7 @@ impl GeometryOps {
     /// Create a buffer around a point
     pub fn buffer_point(center: &Coordinate, radius: f64, segments: usize) -> Result<Polygon> {
         if segments < 3 {
-            return Err(SpatioLiteError::Invalid);
+            return Err(SpatioError::Invalid);
         }
 
         let mut coordinates = Vec::with_capacity(segments + 1);

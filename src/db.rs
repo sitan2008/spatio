@@ -1,5 +1,5 @@
 use crate::batch::AtomicBatch;
-use crate::error::{Result, SpatioLiteError};
+use crate::error::{Result, SpatioError};
 use crate::geometry::{Coordinate, Geometry, GeometryOps, LineString, Polygon};
 use crate::index::IndexManager;
 use crate::persistence::AOFFile;
@@ -16,7 +16,7 @@ use std::time::{Duration, SystemTime};
 
 /// Main Spatio database structure providing thread-safe spatial and temporal data storage.
 ///
-/// The `DB` struct is the core of SpatioLite, offering:
+/// The `DB` struct is the core of Spatio, offering:
 /// - Key-value storage with spatial indexing
 /// - Geographic point operations with geohash and S2 cell indexing
 /// - Trajectory tracking for moving objects
@@ -98,7 +98,7 @@ use std::time::{Duration, SystemTime};
 ///
 /// # Persistence
 ///
-/// For persistent storage, use `SpatioLite::open()` instead of `memory()`:
+/// For persistent storage, use `Spatio::open()` instead of `memory()`:
 ///
 /// ```rust
 /// use spatio::Spatio;
@@ -155,7 +155,7 @@ pub(crate) struct DBInner {
 }
 
 impl DB {
-    /// Opens a SpatioLite database from a file path or creates a new one.
+    /// Opens a Spatio database from a file path or creates a new one.
     ///
     /// This method handles both persistent and in-memory databases:
     /// - For persistent storage: provide a file path (e.g., `"data.db"`)
@@ -188,7 +188,7 @@ impl DB {
     ///
     /// # File Format
     ///
-    /// SpatioLite uses an AOF (Append-Only File) format for persistence.
+    /// Spatio uses an AOF (Append-Only File) format for persistence.
     /// This provides durability and crash recovery while maintaining high
     /// write performance. The file extension (`.db`, `.aof`) is cosmetic.
     ///
@@ -235,7 +235,7 @@ impl DB {
 
     /// Creates a new in-memory Spatio database.
     ///
-    /// This is a convenience method equivalent to `SpatioLite::open(":memory:")`.
+    /// This is a convenience method equivalent to `Spatio::open(":memory:")`.
     /// The database will not persist to disk and all data will be lost when
     /// the database is dropped.
     ///
@@ -275,7 +275,7 @@ impl DB {
 
     /// Inserts a key-value pair into the database.
     ///
-    /// This is the fundamental storage operation in SpatioLite. The operation
+    /// This is the fundamental storage operation in Spatio. The operation
     /// is atomic and thread-safe. If the key already exists, its value will
     /// be updated.
     ///
@@ -318,7 +318,7 @@ impl DB {
 
         let mut inner = self.write()?;
         if inner.closed {
-            return Err(SpatioLiteError::DatabaseClosed);
+            return Err(SpatioError::DatabaseClosed);
         }
 
         let item = if let Some(ref opts) = opts {
@@ -352,7 +352,7 @@ impl DB {
         let inner = self.read()?;
 
         if inner.closed {
-            return Err(SpatioLiteError::DatabaseClosed);
+            return Err(SpatioError::DatabaseClosed);
         }
 
         match inner.get_item(&key) {
@@ -367,7 +367,7 @@ impl DB {
         let mut inner = self.write()?;
 
         if inner.closed {
-            return Err(SpatioLiteError::DatabaseClosed);
+            return Err(SpatioError::DatabaseClosed);
         }
 
         let old_item = inner.remove_item(&key);
@@ -387,7 +387,7 @@ impl DB {
     {
         let mut inner = self.write()?;
         if inner.closed {
-            return Err(SpatioLiteError::DatabaseClosed);
+            return Err(SpatioError::DatabaseClosed);
         }
 
         let mut batch = AtomicBatch::new();
@@ -407,7 +407,7 @@ impl DB {
     {
         let inner = self.read()?;
         if inner.closed {
-            return Err(SpatioLiteError::DatabaseClosed);
+            return Err(SpatioError::DatabaseClosed);
         }
 
         f(&inner)
@@ -604,14 +604,14 @@ impl DB {
     fn read(&self) -> Result<RwLockReadGuard<'_, DBInner>> {
         self.inner
             .read()
-            .map_err(|_| SpatioLiteError::Lock("Failed to acquire read lock".to_string()))
+            .map_err(|_| SpatioError::Lock("Failed to acquire read lock".to_string()))
     }
 
     /// Get a write lock on the inner data
     fn write(&self) -> Result<RwLockWriteGuard<'_, DBInner>> {
         self.inner
             .write()
-            .map_err(|_| SpatioLiteError::Lock("Failed to acquire write lock".to_string()))
+            .map_err(|_| SpatioError::Lock("Failed to acquire write lock".to_string()))
     }
 
     /// Start background tasks (expiration cleanup, auto-shrink, etc.)

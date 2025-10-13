@@ -238,7 +238,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            spatiolite/spatiolite
+            spatio/spatio
             ghcr.io/${{ github.repository }}
           tags: |
             type=ref,event=tag
@@ -268,7 +268,7 @@ jobs:
         uses: dawidd6/action-homebrew-bump-formula@v3
         with:
           token: ${{ secrets.HOMEBREW_TOKEN }}
-          formula: spatiolite
+          formula: spatio
           tag: ${{ github.ref_name }}
           revision: ${{ github.sha }}
 
@@ -285,7 +285,7 @@ jobs:
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK }}
           status: success
-          title: "SpatioLite Release"
+          title: "Spatio Release"
           description: "✅ Successfully released ${{ github.ref_name }}"
           color: 0x00ff00
 
@@ -295,6 +295,6 @@ jobs:
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK }}
           status: failure
-          title: "SpatioLite Release Failed"
+          title: "Spatio Release Failed"
           description: "❌ Failed to release ${{ github.ref_name }}"
           color: 0xff0000

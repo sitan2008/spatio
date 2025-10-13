@@ -170,12 +170,12 @@ pub struct Rect {
 impl Rect {
     pub fn new(min: Vec<f64>, max: Vec<f64>) -> Result<Self> {
         if min.len() != max.len() {
-            return Err(crate::error::SpatioLiteError::Invalid);
+            return Err(crate::error::SpatioError::Invalid);
         }
 
         for (min_val, max_val) in min.iter().zip(max.iter()) {
             if min_val > max_val {
-                return Err(crate::error::SpatioLiteError::Invalid);
+                return Err(crate::error::SpatioError::Invalid);
             }
         }
 

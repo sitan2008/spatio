@@ -1,6 +1,6 @@
-//! # SpatioLite - An embedded spatio-temporal database
+//! # Spatio - An embedded spatio-temporal database
 //!
-//! SpatioLite is a high-performance, embedded spatio-temporal database designed for modern applications
+//! Spatio is a high-performance, embedded spatio-temporal database designed for modern applications
 //! that need to store and query location-based data with temporal components.
 //!
 //! ## Features
@@ -123,13 +123,13 @@ pub mod types;
 
 // Re-export core database types
 pub use db::DB;
-pub use error::{Result, SpatioLiteError};
+pub use error::{Result, SpatioError};
 
 // Main database type alias
 pub type Spatio = DB;
 
 // Error type alias for consistency
-pub type SpatioError = SpatioLiteError;
+pub type SpatioError = SpatioError;
 
 // Re-export spatial types and utilities
 pub use spatial::{
@@ -151,8 +151,8 @@ pub use db::SpatialStats;
 // Re-export persistence types for advanced usage
 pub use persistence::{AOFCommand, AOFFile};
 
-/// Main SpatioLite database - alias for DB
-pub type SpatioLite = DB;
+/// Main Spatio database - alias for DB
+pub type Spatio = DB;
 
 /// Version information
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -160,8 +160,8 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// Prelude module for common imports
 pub mod prelude {
     pub use crate::{
-        AtomicBatch, BoundingBox, Coordinate, Geometry, Point, Result, SetOptions, SpatioLite,
-        SpatioLiteError,
+        AtomicBatch, BoundingBox, Coordinate, Geometry, Point, Result, SetOptions, Spatio,
+        SpatioError,
     };
     pub use std::time::Duration;
 }

@@ -19,7 +19,7 @@
 </p>
 
 
-**SpatioLite** is a high-performance, embedded spatio-temporal database designed for modern applications that need to store and query location-based data with temporal components.
+**Spatio** is a high-performance, embedded spatio-temporal database designed for modern applications that need to store and query location-based data with temporal components.
 
 ## Features
 
