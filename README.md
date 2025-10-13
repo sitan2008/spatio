@@ -23,16 +23,14 @@
 
 ## Features
 
-- **In-Memory Performance**: Fast reads and writes with optional persistence
-- **Spatial Indexing**: Geohash, S2 cells, and R-tree indexing for geospatial data
-- **Time-to-Live (TTL)**: Built-in expiration for temporal data
-- **Thread-Safe**: Concurrent operations with atomic batches
-- **Persistent Storage**: Append-only file (AOF) format with replay support
-- **Geo-Spatial Features**: Point storage, trajectory tracking, and spatial queries
-- **Advanced Geometry**: Full support for polygons and linestrings
-- **Spatial Operations**: Point-in-polygon, intersections, distance calculations, and buffering
-- **Standards Compliant**: WKT serialization and GeoJSON-compatible geometry types
-- **Embeddable**: Simple API that integrates easily into any Rust application
+- **Fast Key-Value Storage**: High-performance in-memory operations with optional persistence
+- **Automatic Spatial Indexing**: Points are automatically indexed for efficient spatial queries
+- **Trajectory Tracking**: Store and query movement paths over time
+- **TTL Support**: Built-in data expiration for temporary data
+- **Atomic Operations**: Batch multiple operations for data consistency
+- **Thread-Safe**: Concurrent read/write access without blocking
+- **Simple API**: Clean, focused interface that's easy to learn and use
+- **Embedded**: No external dependencies or setup required
 
 ## Installation
 
@@ -296,29 +294,38 @@ Spatio is optimized for high-throughput scenarios with excellent performance cha
 - **Persistence**: Fast AOF writes with configurable sync policies
 - **Automatic Optimization**: Spatial indexes created automatically for optimal performance
 
-## Spatial Indexing
+## Spatial Features
 
-Spatio provides advanced spatial indexing capabilities with automatic optimization:
+Spatio automatically indexes geographic points for efficient spatial queries:
 
-### Automatic Spatial Indexes
+### Automatic Indexing
 
-Spatial indexes are created automatically when you perform spatial queries:
+Points are automatically indexed when inserted:
 
 ```rust
-// Spatial index is created automatically on first query
-let nearby = db.find_nearest_neighbors("locations", &center_point, 1000.0, 10)?;
+// Points are automatically indexed for spatial queries
+db.insert_point("cities", &nyc, b"New York", None)?;
+db.insert_point("cities", &london, b"London", None)?;
+
+// Find nearby points within 1000km
+let nearby = db.find_nearby("cities", &center_point, 1_000_000.0, 10)?;
 ```
 
-### Manual Spatial Index Creation
+### Trajectory Tracking
 
-For optimal performance, create spatial indexes explicitly:
+Track moving objects over time:
 
 ```rust
-// Create spatial index for a data prefix
-db.create_spatial_index("sensors")?;
+let trajectory = vec![
+    (Point::new(40.7128, -74.0060), 1640995200), // Start
+    (Point::new(40.7150, -74.0040), 1640995260), // 1 min later
+    (Point::new(40.7172, -74.0020), 1640995320), // 2 min later
+];
 
-// Now all spatial queries on "sensors" will use the index
-let nearby_sensors = db.find_nearest_neighbors("sensors", &point, 500.0, 5)?;
+db.insert_trajectory("vehicle:truck001", &trajectory, None)?;
+
+// Query trajectory for a time range
+let path = db.query_trajectory("vehicle:truck001", 1640995200, 1640995320)?;
 ```
 
 ## API Overview
@@ -427,27 +434,22 @@ db.set_config(config)?;
 Spatio is currently in **early development** (v0.1.x). The core functionality is working, but the API may change before v1.0.
 
 ### Implemented
-- [x] In-memory key-value storage
-- [x] Atomic operations and batches
+- [x] Fast in-memory key-value storage
+- [x] Atomic batch operations
 - [x] TTL/expiration support
-- [x] AOF persistence with replay and auto-compaction
-- [x] Spatial point operations
-- [x] Geohash and S2 cell indexing
-- [x] R-tree spatial indexing with automatic optimization
+- [x] AOF persistence with replay
+- [x] Geographic point storage
+- [x] Automatic spatial indexing
 - [x] Trajectory tracking and queries
-- [x] Nearest neighbor search
-- [x] Thread-safe operations
-- [x] Complex geometry support (Polygons, LineStrings)
-- [x] Advanced spatial queries (contains, intersects, within bounds)
-- [x] Spatial operations (buffer, distance, area calculations)
-- [x] WKT serialization and geometry persistence
-- [x] Polygon with holes support
-- [x] Comprehensive test suite
-- [x] Benchmarking suite
+- [x] Nearby point search
+- [x] Thread-safe concurrent operations
+- [x] Distance calculations
+- [x] Comprehensive examples
 
-### In Progress
-- [ ] Index management API
-- [ ] Performance optimizations
+### Planned
+- [ ] Query optimization
+- [ ] Advanced persistence features
+- [ ] Performance benchmarking tools
 - [ ] GeoJSON import/export
 
 

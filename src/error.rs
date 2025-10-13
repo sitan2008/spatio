@@ -1,69 +1,49 @@
-use thiserror::Error;
+use std::fmt;
 
-#[derive(Error, Debug)]
+/// Simplified error types for Spatio
+#[derive(Debug)]
 pub enum SpatioError {
-    #[error("Transaction is not writable")]
-    TxNotWritable,
-
-    #[error("Transaction is closed")]
-    TxClosed,
-
-    #[error("Key not found")]
-    NotFound,
-
-    #[error("Invalid operation")]
-    Invalid,
-
-    #[error("Database is closed")]
+    /// Database is closed
     DatabaseClosed,
-
-    #[error("Index '{0}' already exists")]
-    IndexExists(String),
-
-    #[error("Invalid operation: {0}")]
-    InvalidOperation(String),
-
-    #[error("Invalid sync policy")]
-    InvalidSyncPolicy,
-
-    #[error("Shrink operation in process")]
-    ShrinkInProcess,
-
-    #[error("Persistence is active")]
-    PersistenceActive,
-
-    #[error("Transaction is currently iterating")]
-    TxIterating,
-
-    #[error("Index '{0}' not found")]
-    IndexNotFound(String),
-
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
-
-    #[error("Serialization error: {0}")]
-    Serialization(String),
-
-    #[error("Deserialization error: {0}")]
-    Deserialization(String),
-
-    #[error("Pattern matching error: {0}")]
-    PatternMatch(String),
-
-    #[error("Expired item")]
-    Expired,
-
-    #[error("Invalid key")]
-    InvalidKey,
-
-    #[error("Invalid value")]
-    InvalidValue,
-
-    #[error("Database corruption detected")]
-    Corruption,
-
-    #[error("Lock error: {0}")]
-    Lock(String),
+    /// Lock acquisition failed
+    LockError,
+    /// Invalid geohash
+    InvalidGeohash,
+    /// Serialization/deserialization error
+    SerializationError,
+    /// I/O error from persistence layer
+    Io(std::io::Error),
+    /// Generic error with message
+    Other(String),
 }
 
+impl fmt::Display for SpatioError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            SpatioError::DatabaseClosed => write!(f, "Database is closed"),
+            SpatioError::LockError => write!(f, "Failed to acquire lock"),
+            SpatioError::InvalidGeohash => write!(f, "Invalid geohash"),
+            SpatioError::SerializationError => write!(f, "Serialization error"),
+            SpatioError::Io(err) => write!(f, "I/O error: {}", err),
+            SpatioError::Other(msg) => write!(f, "{}", msg),
+        }
+    }
+}
+
+impl std::error::Error for SpatioError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            SpatioError::Io(err) => Some(err),
+            _ => None,
+        }
+    }
+}
+
+impl From<std::io::Error> for SpatioError {
+    fn from(err: std::io::Error) -> Self {
+        SpatioError::Io(err)
+    }
+}
+
+/// Result type alias for Spatio operations
 pub type Result<T> = std::result::Result<T, SpatioError>;

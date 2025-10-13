@@ -137,7 +137,7 @@ impl AOFFile {
                 if let Some(expires_at) = expires_at {
                     let timestamp = expires_at
                         .duration_since(UNIX_EPOCH)
-                        .map_err(|_| SpatioError::Serialization("Invalid timestamp".to_string()))?
+                        .map_err(|_| SpatioError::SerializationError)?
                         .as_secs();
                     buf.put_u64(timestamp);
                 } else {
@@ -163,7 +163,7 @@ impl AOFFile {
                 // Expiration timestamp
                 let timestamp = expires_at
                     .duration_since(UNIX_EPOCH)
-                    .map_err(|_| SpatioError::Serialization("Invalid timestamp".to_string()))?
+                    .map_err(|_| SpatioError::SerializationError)?
                     .as_secs();
                 buf.put_u64(timestamp);
             }
@@ -203,9 +203,7 @@ impl AOFFile {
     /// Deserialize a command from bytes
     fn deserialize_command(&self, buf: &mut Bytes) -> Result<AOFCommand> {
         if buf.remaining() < 1 {
-            return Err(SpatioError::Deserialization(
-                "Incomplete command".to_string(),
-            ));
+            return Err(SpatioError::SerializationError);
         }
 
         let cmd_type = buf.get_u8();
@@ -214,36 +212,26 @@ impl AOFFile {
             1 => {
                 // SET command
                 if buf.remaining() < 8 {
-                    return Err(SpatioError::Deserialization(
-                        "Incomplete SET command".to_string(),
-                    ));
+                    return Err(SpatioError::SerializationError);
                 }
 
                 let key_len = buf.get_u32() as usize;
                 if buf.remaining() < key_len {
-                    return Err(SpatioError::Deserialization(
-                        "Incomplete key data".to_string(),
-                    ));
+                    return Err(SpatioError::SerializationError);
                 }
                 let key = buf.copy_to_bytes(key_len);
 
                 if buf.remaining() < 4 {
-                    return Err(SpatioError::Deserialization(
-                        "Missing value length".to_string(),
-                    ));
+                    return Err(SpatioError::SerializationError);
                 }
                 let value_len = buf.get_u32() as usize;
                 if buf.remaining() < value_len {
-                    return Err(SpatioError::Deserialization(
-                        "Incomplete value data".to_string(),
-                    ));
+                    return Err(SpatioError::SerializationError);
                 }
                 let value = buf.copy_to_bytes(value_len);
 
                 if buf.remaining() < 8 {
-                    return Err(SpatioError::Deserialization(
-                        "Missing expiration data".to_string(),
-                    ));
+                    return Err(SpatioError::SerializationError);
                 }
                 let expires_timestamp = buf.get_u64();
                 let expires_at = if expires_timestamp == 0 {
@@ -261,16 +249,12 @@ impl AOFFile {
             2 => {
                 // DELETE command
                 if buf.remaining() < 4 {
-                    return Err(SpatioError::Deserialization(
-                        "Incomplete DELETE command".to_string(),
-                    ));
+                    return Err(SpatioError::SerializationError);
                 }
 
                 let key_len = buf.get_u32() as usize;
                 if buf.remaining() < key_len {
-                    return Err(SpatioError::Deserialization(
-                        "Incomplete key data".to_string(),
-                    ));
+                    return Err(SpatioError::SerializationError);
                 }
                 let key = buf.copy_to_bytes(key_len);
 
@@ -279,33 +263,24 @@ impl AOFFile {
             3 => {
                 // EXPIRE command
                 if buf.remaining() < 4 {
-                    return Err(SpatioError::Deserialization(
-                        "Incomplete EXPIRE command".to_string(),
-                    ));
+                    return Err(SpatioError::SerializationError);
                 }
 
                 let key_len = buf.get_u32() as usize;
                 if buf.remaining() < key_len {
-                    return Err(SpatioError::Deserialization(
-                        "Incomplete key data".to_string(),
-                    ));
+                    return Err(SpatioError::SerializationError);
                 }
                 let key = buf.copy_to_bytes(key_len);
 
                 if buf.remaining() < 8 {
-                    return Err(SpatioError::Deserialization(
-                        "Missing expiration timestamp".to_string(),
-                    ));
+                    return Err(SpatioError::SerializationError);
                 }
                 let expires_timestamp = buf.get_u64();
                 let expires_at = UNIX_EPOCH + Duration::from_secs(expires_timestamp);
 
                 Ok(AOFCommand::Expire { key, expires_at })
             }
-            _ => Err(SpatioError::Deserialization(format!(
-                "Unknown command type: {}",
-                cmd_type
-            ))),
+            _ => Err(SpatioError::SerializationError),
         }
     }
 

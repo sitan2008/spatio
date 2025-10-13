@@ -1,17 +1,16 @@
-//! # Spatio - An embedded spatio-temporal database
+//! # Spatio - A simple embedded spatial database
 //!
-//! Spatio is a high-performance, embedded spatio-temporal database designed for modern applications
-//! that need to store and query location-based data with temporal components.
+//! Spatio is a fast, embedded spatial database designed for applications
+//! that need to store and query location-based data efficiently.
 //!
-//! ## Features
+//! ## Core Features
 //!
-//! - **In-Memory Performance**: Fast reads and writes with optional persistence
-//! - **Spatial Indexing**: Geohash, S2 cells, and R-tree indexing for geospatial data
-//! - **Time-to-Live (TTL)**: Built-in expiration for temporal data
-//! - **Thread-Safe**: Concurrent operations with atomic batches
-//! - **Persistent Storage**: Append-only file (AOF) format with replay support
-//! - **Geo-Spatial Features**: Point storage, trajectory tracking, and spatial queries
-//! - **Embeddable**: Simple API that integrates easily into any Rust application
+//! - **Fast key-value storage** with optional persistence
+//! - **Automatic spatial indexing** for geographic points
+//! - **Trajectory tracking** for moving objects over time
+//! - **TTL support** for automatic data expiration
+//! - **Atomic operations** for data consistency
+//! - **Thread-safe** concurrent access
 //!
 //! ## Quick Start
 //!
@@ -23,12 +22,16 @@
 //! // Create an in-memory database
 //! let db = Spatio::memory()?;
 //!
-//! // Spatial point operations
-//! let nyc = Point::new(40.7128, -74.0060);
-//! db.insert_point("location:nyc", &nyc, None)?;
+//! // Store a simple key-value pair
+//! db.insert("user:123", b"John Doe", None)?;
 //!
-//! // Insert with geohash indexing for spatial queries
-//! db.insert_point_with_geohash("cities", &nyc, 8, b"New York City", None)?;
+//! // Store a geographic point (automatically indexed)
+//! let nyc = Point::new(40.7128, -74.0060);
+//! db.insert_point("cities", &nyc, b"New York City", None)?;
+//!
+//! // Find nearby points within 100km
+//! let nearby = db.find_nearby("cities", &nyc, 100_000.0, 10)?;
+//! println!("Found {} cities nearby", nearby.len());
 //!
 //! // Atomic batch operations
 //! db.atomic(|batch| {
@@ -37,48 +40,9 @@
 //!     Ok(())
 //! })?;
 //!
-//! // TTL support for temporary data
+//! // Data with TTL (expires in 5 minutes)
 //! let opts = SetOptions::with_ttl(Duration::from_secs(300));
-//! db.insert("temp:reading", b"sensor_data", Some(opts))?;
-//!
-//! // Spatial queries
-//! let nearby = db.find_nearest_neighbors("cities", &nyc, 10000.0, 10)?;
-//! println!("Found {} nearby cities", nearby.len());
-//! # Ok(())
-//! # }
-//! ```
-//!
-//! ## Advanced Geometry Operations
-//!
-//! ```rust
-//! use spatio::{Spatio, geometry::{Coordinate, Polygon, LinearRing, GeometryOps}};
-//!
-//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
-//! let db = Spatio::memory()?;
-//!
-//! // Create a polygon (e.g., a park boundary)
-//! let park_coords = vec![
-//!     Coordinate::new(-73.9733, 40.7644), // SW corner
-//!     Coordinate::new(-73.9500, 40.7644), // SE corner
-//!     Coordinate::new(-73.9500, 40.7997), // NE corner
-//!     Coordinate::new(-73.9733, 40.7997), // NW corner
-//!     Coordinate::new(-73.9733, 40.7644), // Close the ring
-//! ];
-//! let park_ring = LinearRing::new(park_coords)?;
-//! let central_park = Polygon::new(park_ring);
-//!
-//! // Store the polygon
-//! db.insert_polygon("parks", &central_park, b"Central Park", None)?;
-//!
-//! // Create a buffer zone around a point
-//! let center = Coordinate::new(-73.9857, 40.7484);
-//! let buffer = GeometryOps::buffer_point(&center, 0.005, 16)?;
-//! db.insert_polygon("zones", &buffer, b"Safety Zone", None)?;
-//!
-//! // Spatial queries - find geometries containing a point
-//! let test_point = Coordinate::new(-73.9650, 40.7820);
-//! let containing = db.geometries_containing_point("parks", &test_point)?;
-//! println!("Found {} parks containing the point", containing.len());
+//! db.insert("session:abc", b"user_data", Some(opts))?;
 //! # Ok(())
 //! # }
 //! ```
@@ -86,27 +50,23 @@
 //! ## Trajectory Tracking
 //!
 //! ```rust
-//! use spatio::{Spatio, Point, SetOptions};
-//! use std::time::Duration;
+//! use spatio::{Point, Spatio};
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let db = Spatio::memory()?;
 //!
 //! // Track a vehicle's movement over time
-//! let vehicle_path = vec![
-//!     (Point::new(40.7128, -74.0060), 1640995200), // Start: Financial District
-//!     (Point::new(40.7180, -74.0020), 1640995260), // Move north (1 min later)
-//!     (Point::new(40.7230, -73.9980), 1640995320), // Continue north (2 min later)
-//!     (Point::new(40.7484, -73.9857), 1640995380), // End: Times Square (3 min later)
+//! let trajectory = vec![
+//!     (Point::new(40.7128, -74.0060), 1640995200), // Start
+//!     (Point::new(40.7150, -74.0040), 1640995260), // 1 min later
+//!     (Point::new(40.7172, -74.0020), 1640995320), // 2 min later
 //! ];
 //!
-//! // Store trajectory with TTL
-//! let ttl_opts = Some(SetOptions::with_ttl(Duration::from_secs(3600)));
-//! db.insert_trajectory("vehicle:truck001", &vehicle_path, ttl_opts)?;
+//! db.insert_trajectory("vehicle:truck001", &trajectory, None)?;
 //!
-//! // Query trajectory for specific time range
-//! let path_segment = db.query_trajectory("vehicle:truck001", 1640995200, 1640995320)?;
-//! println!("Retrieved {} waypoints for first 2 minutes", path_segment.len());
+//! // Query trajectory for a time range
+//! let path = db.query_trajectory("vehicle:truck001", 1640995200, 1640995320)?;
+//! println!("Retrieved {} waypoints", path.len());
 //! # Ok(())
 //! # }
 //! ```
@@ -114,54 +74,32 @@
 pub mod batch;
 pub mod db;
 pub mod error;
-pub mod geometry;
 pub mod index;
 pub mod persistence;
 pub mod spatial;
-
 pub mod types;
 
-// Re-export core database types
+// Core exports
 pub use db::DB;
 pub use error::{Result, SpatioError};
 
-// Main database type alias
+// Main database type
 pub type Spatio = DB;
 
-// Error type alias for consistency
-pub type SpatioError = SpatioError;
+// Spatial types
+pub use spatial::Point;
 
-// Re-export spatial types and utilities
-pub use spatial::{
-    BoundingBox, CoordinateSystem, GeohashUtils, Point, S2Utils, SpatialAnalysis, SpatialKey,
-};
+// Configuration and options
+pub use types::{Config, DbStats, SetOptions, SyncPolicy};
 
-// Re-export geometry types
-pub use geometry::{Coordinate, Geometry, GeometryOps, LineString, LinearRing, Polygon};
-
-// Re-export batch and transaction types
+// Batch operations
 pub use batch::AtomicBatch;
 
-// Re-export configuration and option types
-pub use types::{Config, DbStats, IndexOptions, Rect, SetOptions, SyncPolicy};
-
-// Re-export spatial types from db module
-pub use db::SpatialStats;
-
-// Re-export persistence types for advanced usage
-pub use persistence::{AOFCommand, AOFFile};
-
-/// Main Spatio database - alias for DB
-pub type Spatio = DB;
-
-/// Version information
+// Version information
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Prelude module for common imports
 pub mod prelude {
-    pub use crate::{
-        AtomicBatch, BoundingBox, Coordinate, Geometry, Point, Result, SetOptions, Spatio,
-        SpatioError,
-    };
+    pub use crate::{Point, Result, SetOptions, Spatio, SpatioError};
     pub use std::time::Duration;
 }
