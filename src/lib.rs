@@ -70,6 +70,39 @@
 //! # Ok(())
 //! # }
 //! ```
+//!
+//! ## Spatial Queries
+//!
+//! ```rust
+//! use spatio::{Point, Spatio};
+//!
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let db = Spatio::memory()?;
+//!
+//! // Insert some cities
+//! let nyc = Point::new(40.7128, -74.0060);
+//! let brooklyn = Point::new(40.6782, -73.9442);
+//! db.insert_point("cities", &nyc, b"New York", None)?;
+//! db.insert_point("cities", &brooklyn, b"Brooklyn", None)?;
+//!
+//! // Check if any points exist within a circular region
+//! let has_nearby = db.contains_point("cities", &nyc, 50_000.0)?; // 50km radius
+//! assert!(has_nearby);
+//!
+//! // Count points within distance
+//! let count = db.count_within_distance("cities", &nyc, 50_000.0)?;
+//! println!("Found {} cities within 50km", count);
+//!
+//! // Check if any points exist within a bounding box
+//! let has_points = db.intersects_bounds("cities", 40.6, -74.1, 40.8, -73.9)?;
+//! assert!(has_points);
+//!
+//! // Find all points within a bounding box
+//! let points = db.find_within_bounds("cities", 40.6, -74.1, 40.8, -73.9, 100)?;
+//! println!("Found {} cities in the area", points.len());
+//! # Ok(())
+//! # }
+//! ```
 
 pub mod batch;
 pub mod db;
@@ -87,7 +120,7 @@ pub use error::{Result, SpatioError};
 pub type Spatio = DB;
 
 // Spatial types
-pub use spatial::Point;
+pub use spatial::{BoundingBox, Point};
 
 // Configuration and options
 pub use types::{Config, DbStats, SetOptions, SyncPolicy};
@@ -100,6 +133,6 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Prelude module for common imports
 pub mod prelude {
-    pub use crate::{Point, Result, SetOptions, Spatio, SpatioError};
+    pub use crate::{BoundingBox, Point, Result, SetOptions, Spatio, SpatioError};
     pub use std::time::Duration;
 }

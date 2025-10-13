@@ -188,6 +188,128 @@ impl Point {
     pub fn within_bounds(&self, min_lat: f64, min_lon: f64, max_lat: f64, max_lon: f64) -> bool {
         self.lat >= min_lat && self.lat <= max_lat && self.lon >= min_lon && self.lon <= max_lon
     }
+
+    /// Check if this point is within a circular region defined by center and radius.
+    ///
+    /// # Arguments
+    ///
+    /// * `center` - Center point of the circular region
+    /// * `radius_meters` - Radius of the circle in meters
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use spatio::Point;
+    ///
+    /// let center = Point::new(40.7128, -74.0060); // NYC
+    /// let point = Point::new(40.7150, -74.0040);  // Close to NYC
+    ///
+    /// let within_1km = point.within_distance(&center, 1000.0);
+    /// assert!(within_1km);
+    /// ```
+    pub fn within_distance(&self, center: &Point, radius_meters: f64) -> bool {
+        self.distance_to(center) <= radius_meters
+    }
+
+    /// Check if two bounding boxes intersect.
+    ///
+    /// This is a convenience method that creates BoundingBox instances and checks intersection.
+    ///
+    /// # Arguments
+    ///
+    /// * `min_lat1, min_lon1, max_lat1, max_lon1` - First bounding box
+    /// * `min_lat2, min_lon2, max_lat2, max_lon2` - Second bounding box
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use spatio::Point;
+    ///
+    /// // Check if NYC area intersects with general New York state area
+    /// let intersects = Point::intersects_bounds(
+    ///     40.5, -74.5, 41.0, -73.5,  // NYC area
+    ///     40.0, -80.0, 45.0, -71.0   // NY state area
+    /// );
+    /// assert!(intersects);
+    /// ```
+    #[allow(clippy::too_many_arguments)]
+    pub fn intersects_bounds(
+        min_lat1: f64,
+        min_lon1: f64,
+        max_lat1: f64,
+        max_lon1: f64,
+        min_lat2: f64,
+        min_lon2: f64,
+        max_lat2: f64,
+        max_lon2: f64,
+    ) -> bool {
+        let bbox1 = BoundingBox::new(min_lat1, min_lon1, max_lat1, max_lon1);
+        let bbox2 = BoundingBox::new(min_lat2, min_lon2, max_lat2, max_lon2);
+        bbox1.intersects(&bbox2)
+    }
+
+    /// Check if this point contains another point within a specified radius.
+    /// This is essentially the same as `within_distance` but with reversed semantics.
+    ///
+    /// # Arguments
+    ///
+    /// * `other` - The point to check
+    /// * `radius_meters` - Radius in meters for containment
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use spatio::Point;
+    ///
+    /// let center = Point::new(40.7128, -74.0060); // NYC
+    /// let point = Point::new(40.7150, -74.0040);  // Close to NYC
+    ///
+    /// let contains = center.contains_point(&point, 1000.0);
+    /// assert!(contains);
+    /// ```
+    pub fn contains_point(&self, other: &Point, radius_meters: f64) -> bool {
+        self.distance_to(other) <= radius_meters
+    }
+}
+
+/// A bounding box defined by minimum and maximum latitude and longitude coordinates.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BoundingBox {
+    pub min_lat: f64,
+    pub min_lon: f64,
+    pub max_lat: f64,
+    pub max_lon: f64,
+}
+
+impl BoundingBox {
+    /// Create a new bounding box
+    pub fn new(min_lat: f64, min_lon: f64, max_lat: f64, max_lon: f64) -> Self {
+        Self {
+            min_lat,
+            min_lon,
+            max_lat,
+            max_lon,
+        }
+    }
+
+    /// Check if this bounding box intersects with another bounding box.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use spatio::BoundingBox;
+    ///
+    /// let nyc_area = BoundingBox::new(40.5, -74.5, 41.0, -73.5);
+    /// let ny_state = BoundingBox::new(40.0, -80.0, 45.0, -71.0);
+    ///
+    /// assert!(nyc_area.intersects(&ny_state));
+    /// ```
+    pub fn intersects(&self, other: &BoundingBox) -> bool {
+        !(self.max_lat < other.min_lat
+            || self.min_lat > other.max_lat
+            || self.max_lon < other.min_lon
+            || self.min_lon > other.max_lon)
+    }
 }
 
 impl fmt::Display for Point {
@@ -304,5 +426,85 @@ mod tests {
         let point = Point::new(40.7128, -74.0060);
         let display = format!("{}", point);
         assert_eq!(display, "(40.712800, -74.006000)");
+    }
+
+    #[test]
+    fn test_within_distance() {
+        let nyc = Point::new(40.7128, -74.0060);
+        let brooklyn = Point::new(40.6782, -73.9442);
+        let london = Point::new(51.5074, -0.1278);
+
+        // Brooklyn should be within 20km of NYC
+        assert!(brooklyn.within_distance(&nyc, 20_000.0));
+
+        // London should not be within 1000km of NYC
+        assert!(!london.within_distance(&nyc, 1_000_000.0));
+
+        // Point should be within 0 distance of itself
+        assert!(nyc.within_distance(&nyc, 0.0));
+    }
+
+    #[test]
+    fn test_contains_point() {
+        let nyc = Point::new(40.7128, -74.0060);
+        let brooklyn = Point::new(40.6782, -73.9442);
+        let london = Point::new(51.5074, -0.1278);
+
+        // NYC should contain Brooklyn within 20km
+        assert!(nyc.contains_point(&brooklyn, 20_000.0));
+
+        // NYC should not contain London within 1000km
+        assert!(!nyc.contains_point(&london, 1_000_000.0));
+
+        // Point should contain itself within any positive radius
+        assert!(nyc.contains_point(&nyc, 1.0));
+    }
+
+    #[test]
+    fn test_intersects_bounds() {
+        // Test overlapping bounds
+        assert!(Point::intersects_bounds(
+            40.0, -75.0, 41.0, -73.0, // NYC area
+            40.5, -74.5, 40.8, -74.0 // Manhattan area (overlaps)
+        ));
+
+        // Test non-overlapping bounds
+        assert!(!Point::intersects_bounds(
+            40.0, -75.0, 41.0, -73.0, // NYC area
+            51.0, -1.0, 52.0, 1.0 // London area (no overlap)
+        ));
+
+        // Test identical bounds
+        assert!(Point::intersects_bounds(
+            40.0, -75.0, 41.0, -73.0, 40.0, -75.0, 41.0, -73.0
+        ));
+
+        // Test touching bounds (should intersect)
+        assert!(Point::intersects_bounds(
+            40.0, -75.0, 41.0, -73.0, 41.0, -75.0, 42.0, -73.0
+        ));
+
+        // Test completely separate bounds
+        assert!(!Point::intersects_bounds(
+            40.0, -75.0, 41.0, -73.0, 42.0, -75.0, 43.0, -73.0
+        ));
+    }
+
+    #[test]
+    fn test_bounding_box() {
+        let bbox1 = BoundingBox::new(40.0, -75.0, 41.0, -73.0);
+        let bbox2 = BoundingBox::new(40.5, -74.5, 40.8, -74.0);
+        let bbox3 = BoundingBox::new(51.0, -1.0, 52.0, 1.0);
+
+        // Test overlapping boxes
+        assert!(bbox1.intersects(&bbox2));
+        assert!(bbox2.intersects(&bbox1));
+
+        // Test non-overlapping boxes
+        assert!(!bbox1.intersects(&bbox3));
+        assert!(!bbox3.intersects(&bbox1));
+
+        // Test identical boxes
+        assert!(bbox1.intersects(&bbox1));
     }
 }

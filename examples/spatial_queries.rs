@@ -1,4 +1,4 @@
-use spatio::{Point, Spatio};
+use spatio::{BoundingBox, Point, Spatio};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Spatio - Spatial Queries Example");
@@ -116,8 +116,102 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  - Total keys: {}", stats.key_count);
     println!("  - Operations performed: {}", stats.operations_count);
 
-    println!("\n🎉 Spatial queries example completed successfully!");
-    println!("\nKey features demonstrated:");
+    // Demonstrate new spatial query methods
+    println!("\n🔍 Advanced Spatial Query Methods:");
+
+    // Test contains_point - check if there are any cities within 1000km of London
+    let has_nearby_cities = db.contains_point("world_cities", &reference_point, 1_000_000.0)?;
+    println!(
+        "  ✓ Cities within 1000km of London exist: {}",
+        has_nearby_cities
+    );
+
+    // Count cities within different distances from London
+    let count_500km = db.count_within_distance("world_cities", &reference_point, 500_000.0)?;
+    let count_1000km = db.count_within_distance("world_cities", &reference_point, 1_000_000.0)?;
+    let count_2000km = db.count_within_distance("world_cities", &reference_point, 2_000_000.0)?;
+
+    println!("  📊 Cities within 500km: {}", count_500km);
+    println!("  📊 Cities within 1000km: {}", count_1000km);
+    println!("  📊 Cities within 2000km: {}", count_2000km);
+
+    // Test bounding box queries - European region
+    let europe_bounds = (45.0, -10.0, 60.0, 30.0); // min_lat, min_lon, max_lat, max_lon
+    let has_european_cities = db.intersects_bounds(
+        "world_cities",
+        europe_bounds.0,
+        europe_bounds.1,
+        europe_bounds.2,
+        europe_bounds.3,
+    )?;
+    println!("  🌍 European cities exist: {}", has_european_cities);
+
+    // Find all cities in European region
+    let european_cities = db.find_within_bounds(
+        "world_cities",
+        europe_bounds.0,
+        europe_bounds.1,
+        europe_bounds.2,
+        europe_bounds.3,
+        10,
+    )?;
+
+    println!("  🇪🇺 Cities in European region:");
+    for (point, data) in &european_cities {
+        let city_name = String::from_utf8_lossy(data);
+        println!("    - {} at {}", city_name, point);
+    }
+
+    // Test bounding box around London area
+    let london_area = (51.0, -1.0, 52.0, 1.0);
+    let london_area_cities = db.find_within_bounds(
+        "world_cities",
+        london_area.0,
+        london_area.1,
+        london_area.2,
+        london_area.3,
+        5,
+    )?;
+
+    println!("  🏴󠁧󠁢󠁥󠁮󠁧󠁿 Cities in London area:");
+    for (point, data) in &london_area_cities {
+        let city_name = String::from_utf8_lossy(data);
+        println!("    - {} at {}", city_name, point);
+    }
+
+    // Demonstrate BoundingBox struct usage
+    let asia_pacific = BoundingBox::new(-50.0, 100.0, 50.0, 180.0);
+    let europe_box = BoundingBox::new(35.0, -10.0, 70.0, 40.0);
+
+    println!("  📦 BoundingBox intersection test:");
+    println!(
+        "    - Asia-Pacific and Europe intersect: {}",
+        asia_pacific.intersects(&europe_box)
+    );
+
+    // Test point containment methods
+    println!("  🎯 Point containment tests:");
+    let central_london = Point::new(51.5074, -0.1278);
+    let tower_bridge = Point::new(51.5055, -0.0754);
+
+    println!(
+        "    - Tower Bridge within 5km of Central London: {}",
+        central_london.contains_point(&tower_bridge, 5000.0)
+    );
+    println!(
+        "    - Central London within 2km of Tower Bridge: {}",
+        tower_bridge.contains_point(&central_london, 2000.0)
+    );
+
+    println!("\n🎉 Enhanced spatial queries example completed successfully!");
+    println!("\nNew spatial query features demonstrated:");
+    println!("- contains_point: Check if points exist within a circular region");
+    println!("- count_within_distance: Count points within a radius (efficient)");
+    println!("- intersects_bounds: Check if points exist within a bounding box");
+    println!("- find_within_bounds: Find all points within a rectangular region");
+    println!("- BoundingBox: Dedicated struct for bounding box operations");
+    println!("- Point containment methods for distance-based checks");
+    println!("\nPrevious features:");
     println!("- Automatic spatial indexing of geographic points");
     println!("- Efficient nearby point searches with distance filtering");
     println!("- Distance calculations between any two points");

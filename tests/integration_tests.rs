@@ -190,3 +190,99 @@ fn test_multiple_namespaces() {
     assert_eq!(cities[0].1.as_ref(), b"New York");
     assert_eq!(airports[0].1.as_ref(), b"JFK Area");
 }
+
+#[test]
+fn test_spatial_query_methods() {
+    let db = Spatio::memory().unwrap();
+
+    // Insert test points
+    let nyc = Point::new(40.7128, -74.0060);
+    let brooklyn = Point::new(40.6782, -73.9442);
+    let manhattan = Point::new(40.7831, -73.9712);
+    let london = Point::new(51.5074, -0.1278);
+
+    db.insert_point("cities", &nyc, b"New York", None).unwrap();
+    db.insert_point("cities", &brooklyn, b"Brooklyn", None)
+        .unwrap();
+    db.insert_point("cities", &manhattan, b"Manhattan", None)
+        .unwrap();
+    db.insert_point("cities", &london, b"London", None).unwrap();
+
+    // Test contains_point - check if there are points within radius
+    let has_nearby_nyc = db.contains_point("cities", &nyc, 5000.0).unwrap();
+    assert!(has_nearby_nyc); // Should find NYC itself at minimum
+
+    let has_nearby_middle_ocean = db
+        .contains_point("cities", &Point::new(30.0, -30.0), 1000.0)
+        .unwrap();
+    assert!(!has_nearby_middle_ocean); // Should find nothing in middle of ocean
+
+    // Test count_within_distance
+    let count_near_nyc = db.count_within_distance("cities", &nyc, 50_000.0).unwrap();
+    assert!(count_near_nyc >= 3); // Should find at least NYC, Brooklyn, Manhattan
+
+    let count_near_london = db
+        .count_within_distance("cities", &london, 50_000.0)
+        .unwrap();
+    assert_eq!(count_near_london, 1); // Should only find London
+
+    // Test intersects_bounds - Manhattan area
+    let intersects_manhattan = db
+        .intersects_bounds("cities", 40.7, -74.1, 40.8, -73.9)
+        .unwrap();
+    assert!(intersects_manhattan); // Should find Manhattan and NYC
+
+    // Test intersects_bounds - empty area in Pacific Ocean
+    let intersects_pacific = db
+        .intersects_bounds("cities", 10.0, -170.0, 20.0, -160.0)
+        .unwrap();
+    assert!(!intersects_pacific); // Should find nothing
+
+    // Test find_within_bounds - NYC area
+    let points_in_nyc_area = db
+        .find_within_bounds("cities", 40.6, -74.1, 40.8, -73.9, 10)
+        .unwrap();
+    assert!(points_in_nyc_area.len() >= 3); // Should find NYC, Brooklyn, Manhattan
+
+    // Verify the points are actually in the expected area
+    for (point, _) in &points_in_nyc_area {
+        assert!(point.within_bounds(40.6, -74.1, 40.8, -73.9));
+    }
+
+    // Test find_within_bounds - London area
+    let points_in_london_area = db
+        .find_within_bounds("cities", 51.0, -1.0, 52.0, 1.0, 10)
+        .unwrap();
+    assert_eq!(points_in_london_area.len(), 1); // Should only find London
+    assert_eq!(points_in_london_area[0].1.as_ref(), b"London");
+}
+
+#[test]
+fn test_point_spatial_methods() {
+    let nyc = Point::new(40.7128, -74.0060);
+    let brooklyn = Point::new(40.6782, -73.9442);
+    let london = Point::new(51.5074, -0.1278);
+
+    // Test within_distance
+    assert!(brooklyn.within_distance(&nyc, 20_000.0)); // Brooklyn is close to NYC
+    assert!(!london.within_distance(&nyc, 1_000_000.0)); // London is far from NYC
+
+    // Test contains_point (reverse of within_distance)
+    assert!(nyc.contains_point(&brooklyn, 20_000.0)); // NYC contains Brooklyn within 20km
+    assert!(!nyc.contains_point(&london, 1_000_000.0)); // NYC doesn't contain London within 1000km
+
+    // Test intersects_bounds
+    assert!(Point::intersects_bounds(
+        40.0, -75.0, 41.0, -73.0, // NYC area
+        40.5, -74.5, 40.8, -74.0 // Manhattan area
+    )); // Should intersect
+
+    assert!(!Point::intersects_bounds(
+        40.0, -75.0, 41.0, -73.0, // NYC area
+        51.0, -1.0, 52.0, 1.0 // London area
+    )); // Should not intersect
+
+    // Test within_bounds
+    assert!(nyc.within_bounds(40.0, -75.0, 41.0, -73.0)); // NYC within NYC area bounds
+    assert!(!london.within_bounds(40.0, -75.0, 41.0, -73.0)); // London not within NYC area bounds
+}

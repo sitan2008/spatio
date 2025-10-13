@@ -417,6 +417,160 @@ impl DB {
         Ok(results)
     }
 
+    /// Check if there are any points within a circular region.
+    ///
+    /// This method checks if any points exist within the specified distance
+    /// from a center point in the given namespace.
+    ///
+    /// # Arguments
+    ///
+    /// * `prefix` - Namespace to search in
+    /// * `center` - Center point of the circular region
+    /// * `radius_meters` - Radius in meters
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use spatio::{Spatio, Point};
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let db = Spatio::memory()?;
+    /// let center = Point::new(40.7128, -74.0060);
+    ///
+    /// // Check if there are any cities within 50km
+    /// let has_nearby = db.contains_point("cities", &center, 50_000.0)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn contains_point(&self, prefix: &str, center: &Point, radius_meters: f64) -> Result<bool> {
+        let inner = self.read()?;
+        inner
+            .index_manager
+            .contains_point(prefix, center, radius_meters)
+    }
+
+    /// Check if there are any points within a bounding box.
+    ///
+    /// This method checks if any points exist within the specified
+    /// rectangular region in the given namespace.
+    ///
+    /// # Arguments
+    ///
+    /// * `prefix` - Namespace to search in
+    /// * `min_lat` - Minimum latitude of bounding box
+    /// * `min_lon` - Minimum longitude of bounding box
+    /// * `max_lat` - Maximum latitude of bounding box
+    /// * `max_lon` - Maximum longitude of bounding box
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use spatio::{Spatio, Point};
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let db = Spatio::memory()?;
+    ///
+    /// // Check if there are any points in Manhattan area
+    /// let has_points = db.intersects_bounds("sensors", 40.7, -74.1, 40.8, -73.9)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn intersects_bounds(
+        &self,
+        prefix: &str,
+        min_lat: f64,
+        min_lon: f64,
+        max_lat: f64,
+        max_lon: f64,
+    ) -> Result<bool> {
+        let inner = self.read()?;
+        inner
+            .index_manager
+            .intersects_bounds(prefix, min_lat, min_lon, max_lat, max_lon)
+    }
+
+    /// Count points within a distance from a center point.
+    ///
+    /// This method counts how many points exist within the specified
+    /// distance from a center point without returning the actual points.
+    /// More efficient than `find_nearby` when you only need the count.
+    ///
+    /// # Arguments
+    ///
+    /// * `prefix` - Namespace to search in
+    /// * `center` - Center point for the search
+    /// * `radius_meters` - Search radius in meters
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use spatio::{Spatio, Point};
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let db = Spatio::memory()?;
+    /// let center = Point::new(40.7128, -74.0060);
+    ///
+    /// // Count how many sensors are within 1km
+    /// let count = db.count_within_distance("sensors", &center, 1000.0)?;
+    /// println!("Found {} sensors within 1km", count);
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn count_within_distance(
+        &self,
+        prefix: &str,
+        center: &Point,
+        radius_meters: f64,
+    ) -> Result<usize> {
+        let inner = self.read()?;
+        inner
+            .index_manager
+            .count_within_distance(prefix, center, radius_meters)
+    }
+
+    /// Find all points within a bounding box.
+    ///
+    /// This method returns all points that fall within the specified
+    /// rectangular region, up to the specified limit.
+    ///
+    /// # Arguments
+    ///
+    /// * `prefix` - Namespace to search in
+    /// * `min_lat` - Minimum latitude of bounding box
+    /// * `min_lon` - Minimum longitude of bounding box
+    /// * `max_lat` - Maximum latitude of bounding box
+    /// * `max_lon` - Maximum longitude of bounding box
+    /// * `limit` - Maximum number of results to return
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use spatio::{Spatio, Point};
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let db = Spatio::memory()?;
+    ///
+    /// // Find all sensors in Manhattan area
+    /// let points = db.find_within_bounds("sensors", 40.7, -74.1, 40.8, -73.9, 100)?;
+    /// println!("Found {} sensors in Manhattan", points.len());
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn find_within_bounds(
+        &self,
+        prefix: &str,
+        min_lat: f64,
+        min_lon: f64,
+        max_lat: f64,
+        max_lon: f64,
+        limit: usize,
+    ) -> Result<Vec<(Point, Bytes)>> {
+        let inner = self.read()?;
+        inner
+            .index_manager
+            .find_within_bounds(prefix, min_lat, min_lon, max_lat, max_lon, limit)
+    }
+
     /// Force a sync to disk
     pub fn sync(&self) -> Result<()> {
         let mut inner = self.write()?;
