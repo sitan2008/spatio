@@ -1,5 +1,8 @@
 # Rust build artifacts
 /target/
+
+# Cargo.lock is excluded for library crates
+# Include it for applications, exclude for libraries
 Cargo.lock
 
 # Database files
@@ -17,24 +20,47 @@ my_*.db
 # Temporary files
 *.tmp
 *.temp
+
+# OS generated files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 
-# IDE files
+# IDE and editor files
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+.history/
+*.code-workspace
 
 # Documentation build
 /docs/book/
 /docs/rustdoc/
+/target/doc/
 
 # Benchmark results
 /benches/results/
 criterion/
+/target/criterion/
+
+# Code coverage
+tarpaulin-report.html
+cobertura.xml
+lcov.info
 
 # Local development
 .env
 .env.local
+.env.*.local
+
+# Logs
+*.log
+
+# Generated files
+*.generated.rs

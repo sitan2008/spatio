@@ -1,12 +1,39 @@
-use crate::db::DBInner;
 use crate::error::Result;
-use crate::types::{DbItem, SetOptions};
+use crate::types::SetOptions;
+use crate::DB;
 use bytes::Bytes;
-use std::collections::HashMap;
 
-/// Operation type for atomic batches
+/// Atomic batch for grouping multiple operations together.
+///
+/// All operations in a batch are applied atomically - either all succeed
+/// or all fail. This ensures data consistency when performing multiple
+/// related operations.
+///
+/// # Examples
+///
+/// ```rust
+/// use spatio::Spatio;
+///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let db = Spatio::memory()?;
+///
+/// // All operations succeed or all fail
+/// db.atomic(|batch| {
+///     batch.insert("user:123", b"John Doe", None)?;
+///     batch.insert("email:john@example.com", b"user:123", None)?;
+///     batch.insert("session:abc", b"user:123", None)?;
+///     Ok(())
+/// })?;
+/// # Ok(())
+/// # }
+/// ```
+pub struct AtomicBatch {
+    db: DB,
+    operations: Vec<Operation>,
+}
+
 #[derive(Debug, Clone)]
-pub enum BatchOperation {
+enum Operation {
     Insert {
         key: Bytes,
         value: Bytes,
@@ -17,175 +44,126 @@ pub enum BatchOperation {
     },
 }
 
-/// Atomic batch for executing multiple operations together
-pub struct AtomicBatch {
-    operations: Vec<BatchOperation>,
-    operation_count: usize,
-}
-
 impl AtomicBatch {
-    /// Create a new empty batch
-    pub fn new() -> Self {
+    pub(crate) fn new(db: DB) -> Self {
         Self {
+            db,
             operations: Vec::new(),
-            operation_count: 0,
         }
     }
 
-    /// Add an insert operation to the batch
+    /// Insert a key-value pair in this batch.
+    ///
+    /// The operation will be queued and executed when the batch is committed.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - The key to insert
+    /// * `value` - The value to associate with the key
+    /// * `opts` - Optional settings like TTL
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use spatio::{Spatio, SetOptions};
+    /// use std::time::Duration;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let db = Spatio::memory()?;
+    ///
+    /// db.atomic(|batch| {
+    ///     batch.insert("key1", b"value1", None)?;
+    ///
+    ///     let opts = SetOptions::with_ttl(Duration::from_secs(300));
+    ///     batch.insert("key2", b"value2", Some(opts))?;
+    ///     Ok(())
+    /// })?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn insert(
         &mut self,
         key: impl AsRef<[u8]>,
         value: impl AsRef<[u8]>,
         opts: Option<SetOptions>,
     ) -> Result<()> {
-        let key = Bytes::copy_from_slice(key.as_ref());
-        let value = Bytes::copy_from_slice(value.as_ref());
-
-        self.operations
-            .push(BatchOperation::Insert { key, value, opts });
-        self.operation_count += 1;
-
+        let op = Operation::Insert {
+            key: Bytes::copy_from_slice(key.as_ref()),
+            value: Bytes::copy_from_slice(value.as_ref()),
+            opts,
+        };
+        self.operations.push(op);
         Ok(())
     }
 
-    /// Add a delete operation to the batch
+    /// Delete a key in this batch.
+    ///
+    /// The operation will be queued and executed when the batch is committed.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - The key to delete
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use spatio::Spatio;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let db = Spatio::memory()?;
+    ///
+    /// // First insert some data
+    /// db.insert("temp_key", b"temp_value", None)?;
+    ///
+    /// // Then delete it in a batch
+    /// db.atomic(|batch| {
+    ///     batch.delete("temp_key")?;
+    ///     batch.insert("new_key", b"new_value", None)?;
+    ///     Ok(())
+    /// })?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn delete(&mut self, key: impl AsRef<[u8]>) -> Result<()> {
-        let key = Bytes::copy_from_slice(key.as_ref());
-
-        self.operations.push(BatchOperation::Delete { key });
-        self.operation_count += 1;
-
+        let op = Operation::Delete {
+            key: Bytes::copy_from_slice(key.as_ref()),
+        };
+        self.operations.push(op);
         Ok(())
     }
 
-    /// Get the number of operations in the batch
-    pub fn len(&self) -> usize {
-        self.operation_count
-    }
+    /// Commit all operations in this batch atomically.
+    ///
+    /// This is called automatically when the batch closure returns successfully.
+    /// All operations are applied in the order they were added to the batch.
+    pub(crate) fn commit(self) -> Result<()> {
+        // Apply all operations atomically
+        let mut inner = self.db.write()?;
 
-    /// Check if the batch is empty
-    pub fn is_empty(&self) -> bool {
-        self.operation_count == 0
-    }
-
-    /// Clear all operations from the batch
-    pub fn clear(&mut self) {
-        self.operations.clear();
-        self.operation_count = 0;
-    }
-
-    /// Apply all operations in the batch atomically to the database
-    pub(crate) fn apply(&self, db_inner: &mut DBInner) -> Result<HashMap<Bytes, Option<Bytes>>> {
-        let mut results = HashMap::new();
-
-        // Apply all operations
-        for operation in &self.operations {
+        for operation in self.operations {
             match operation {
-                BatchOperation::Insert { key, value, opts } => {
-                    let item = if let Some(opts) = opts {
-                        if let Some(ttl) = opts.ttl {
-                            DbItem::with_ttl(key.clone(), value.clone(), ttl)
-                        } else if let Some(expires_at) = opts.expires_at {
-                            DbItem::with_expiration(key.clone(), value.clone(), expires_at)
-                        } else {
-                            DbItem::new(key.clone(), value.clone())
+                Operation::Insert { key, value, opts } => {
+                    let item = match opts {
+                        Some(SetOptions { ttl: Some(ttl), .. }) => {
+                            crate::types::DbItem::with_ttl(key.clone(), value, ttl)
                         }
-                    } else {
-                        DbItem::new(key.clone(), value.clone())
+                        Some(SetOptions {
+                            expires_at: Some(expires_at),
+                            ..
+                        }) => crate::types::DbItem::with_expiration(key.clone(), value, expires_at),
+                        _ => crate::types::DbItem::new(key.clone(), value),
                     };
 
-                    let old_item = db_inner.insert_item(key.clone(), item);
-                    results.insert(key.clone(), old_item.map(|item| item.value));
+                    inner.insert_item(key, item);
                 }
-                BatchOperation::Delete { key } => {
-                    let old_item = db_inner.remove_item(key);
-                    results.insert(key.clone(), old_item.map(|item| item.value));
+                Operation::Delete { key } => {
+                    inner.remove_item(&key);
                 }
             }
         }
 
-        // Write all operations to AOF if persisting
-        if let Some(ref mut aof_file) = db_inner.aof_file {
-            for operation in &self.operations {
-                match operation {
-                    BatchOperation::Insert { key, value, opts } => {
-                        // Write insert operation to AOF
-                        aof_file.write_set(key, value, opts.as_ref())?;
-                    }
-                    BatchOperation::Delete { key } => {
-                        // Write delete operation to AOF
-                        aof_file.write_delete(key)?;
-                    }
-                }
-            }
-
-            // Sync based on policy
-            match db_inner.config.sync_policy {
-                crate::types::SyncPolicy::Always => {
-                    let _ = aof_file.sync();
-                }
-                crate::types::SyncPolicy::EverySecond => {
-                    // Background sync will handle this
-                }
-                crate::types::SyncPolicy::Never => {
-                    // No sync
-                }
-            }
-        }
-
-        Ok(results)
-    }
-}
-
-impl Default for AtomicBatch {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::time::Duration;
-
-    #[test]
-    fn test_batch_creation() {
-        let batch = AtomicBatch::new();
-        assert!(batch.is_empty());
-        assert_eq!(batch.len(), 0);
-    }
-
-    #[test]
-    fn test_batch_operations() {
-        let mut batch = AtomicBatch::new();
-
-        batch.insert("key1", "value1", None).unwrap();
-        batch
-            .insert(
-                "key2",
-                "value2",
-                Some(SetOptions::with_ttl(Duration::from_secs(60))),
-            )
-            .unwrap();
-        batch.delete("key3").unwrap();
-
-        assert_eq!(batch.len(), 3);
-        assert!(!batch.is_empty());
-    }
-
-    #[test]
-    fn test_batch_clear() {
-        let mut batch = AtomicBatch::new();
-
-        batch.insert("key1", "value1", None).unwrap();
-        batch.insert("key2", "value2", None).unwrap();
-
-        assert_eq!(batch.len(), 2);
-
-        batch.clear();
-
-        assert_eq!(batch.len(), 0);
-        assert!(batch.is_empty());
+        // Write to AOF if needed
+        inner.write_to_aof_if_needed()?;
+        Ok(())
     }
 }

@@ -1,404 +1,410 @@
-use crate::error::{Result, SpatioLiteError};
-use crate::types::{IndexOptions, IndexType, LessFunc, Rect, RectFunc};
+use crate::error::{Result, SpatioError};
+use crate::spatial::Point;
+use crate::types::Config;
 use bytes::Bytes;
 use geohash;
-use rstar::{RTree, RTreeObject, AABB};
-use std::collections::{BTreeMap, HashMap};
-use std::sync::Arc;
+use std::collections::HashMap;
 
-/// A wrapper for items in the R-tree
-#[derive(Debug, Clone, PartialEq)]
-pub struct SpatialItem {
-    pub key: Bytes,
-    pub value: Bytes,
-    pub rect: Rect,
-}
+/// Threshold for large search radius in meters
+const LARGE_RADIUS_THRESHOLD: f64 = 100_000.0;
 
-impl RTreeObject for SpatialItem {
-    type Envelope = AABB<[f64; 2]>;
+/// Threshold for small dataset size
+const SMALL_DATASET_THRESHOLD: usize = 1000;
 
-    fn envelope(&self) -> Self::Envelope {
-        // Convert our multi-dimensional rect to 2D AABB for rstar
-        // For higher dimensions, we'll use the first two dimensions
-        let min_x = self.rect.min.first().copied().unwrap_or(0.0);
-        let min_y = self.rect.min.get(1).copied().unwrap_or(0.0);
-        let max_x = self.rect.max.first().copied().unwrap_or(0.0);
-        let max_y = self.rect.max.get(1).copied().unwrap_or(0.0);
+/// Default geohash precision for spatial indexing
+pub const DEFAULT_GEOHASH_PRECISION: usize = 8;
 
-        AABB::from_corners([min_x, min_y], [max_x, max_y])
-    }
-}
+/// Default geohash precisions for neighbor search
+pub const DEFAULT_SEARCH_PRECISIONS: &[usize] = &[6, 7, 8];
 
-/// Individual index structure
-pub struct Index {
-    /// Name of the index
-    pub name: String,
-    /// Pattern for key matching (simple glob-like pattern)
-    pub pattern: String,
-    /// Index type (B-tree or R-tree)
-    pub index_type: IndexType,
-    /// Options for this index
-    pub options: IndexOptions,
-    /// B-tree storage (for ordered indexes)
-    btree: Option<BTreeMap<Bytes, Vec<Bytes>>>,
-    /// R-tree storage (for spatial indexes)
-    rtree: Option<RTree<SpatialItem>>,
-    /// Custom comparison function for B-tree
-    #[allow(dead_code)]
-    less_func: Option<Arc<LessFunc>>,
-    /// Rectangle extraction function for R-tree
-    rect_func: Option<Arc<RectFunc>>,
-}
-
-impl Index {
-    /// Create a new B-tree index
-    pub fn new_btree(
-        name: String,
-        pattern: String,
-        less_func: Option<LessFunc>,
-        options: IndexOptions,
-    ) -> Self {
-        Self {
-            name,
-            pattern,
-            index_type: IndexType::BTree,
-            options,
-            btree: Some(BTreeMap::new()),
-            rtree: None,
-            less_func: less_func.map(Arc::new),
-            rect_func: None,
-        }
-    }
-
-    /// Create a new R-tree index
-    pub fn new_rtree(
-        name: String,
-        pattern: String,
-        rect_func: RectFunc,
-        options: IndexOptions,
-    ) -> Self {
-        Self {
-            name,
-            pattern,
-            index_type: IndexType::RTree,
-            options,
-            btree: None,
-            rtree: Some(RTree::new()),
-            less_func: None,
-            rect_func: Some(Arc::new(rect_func)),
-        }
-    }
-
-    /// Check if a key matches this index's pattern
-    pub fn matches_pattern(&self, key: &[u8]) -> bool {
-        let key_str = String::from_utf8_lossy(key);
-        pattern_match(&self.pattern, &key_str, self.options.case_insensitive)
-    }
-
-    /// Insert an item into this index
-    pub fn insert(&mut self, key: &Bytes, value: &Bytes) -> Result<()> {
-        if !self.matches_pattern(key) {
-            return Ok(());
-        }
-
-        match &mut self.btree {
-            Some(btree) => {
-                // B-tree index
-                btree
-                    .entry(key.clone())
-                    .or_insert_with(Vec::new)
-                    .push(value.clone());
-            }
-            None => {
-                // R-tree index
-                if let Some(rtree) = &mut self.rtree {
-                    if let Some(ref rect_func) = self.rect_func {
-                        // For spatial indexes, we need to extract coordinates from either key or value
-                        let key_str = String::from_utf8_lossy(key);
-                        let rect_result = if key_str.contains(":gh:") {
-                            // Extract coordinates from geohash in key
-                            if let Some(geohash_part) = key_str.split(':').nth(2) {
-                                if let Ok(decoded) = geohash::decode(geohash_part) {
-                                    Ok(crate::types::Rect::point(vec![decoded.0.y, decoded.0.x]))
-                                } else {
-                                    rect_func(value)
-                                }
-                            } else {
-                                rect_func(value)
-                            }
-                        } else {
-                            // Use the provided rect function for regular point data
-                            rect_func(value)
-                        };
-
-                        match rect_result {
-                            Ok(rect) => {
-                                let spatial_item = SpatialItem {
-                                    key: key.clone(),
-                                    value: value.clone(),
-                                    rect,
-                                };
-                                rtree.insert(spatial_item);
-                            }
-                            Err(e) => {
-                                // Log error but don't fail the operation
-                                eprintln!("Failed to extract rectangle for spatial index: {}", e);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Remove an item from this index
-    pub fn remove(&mut self, key: &Bytes, value: &Bytes) -> Result<()> {
-        if !self.matches_pattern(key) {
-            return Ok(());
-        }
-
-        match &mut self.btree {
-            Some(btree) => {
-                // B-tree index
-                if let Some(values) = btree.get_mut(key) {
-                    values.retain(|v| v != value);
-                    if values.is_empty() {
-                        btree.remove(key);
-                    }
-                }
-            }
-            None => {
-                // R-tree index
-                if let Some(rtree) = &mut self.rtree {
-                    if let Some(ref rect_func) = self.rect_func {
-                        if let Ok(rect) = rect_func(value) {
-                            let spatial_item = SpatialItem {
-                                key: key.clone(),
-                                value: value.clone(),
-                                rect,
-                            };
-                            rtree.remove(&spatial_item);
-                        }
-                    }
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Query the index with a range (for B-tree indexes)
-    pub fn range_query(
-        &self,
-        start: Option<&Bytes>,
-        end: Option<&Bytes>,
-    ) -> Result<Vec<(Bytes, Bytes)>> {
-        match &self.btree {
-            Some(btree) => {
-                let mut results = Vec::new();
-
-                let range = match (start, end) {
-                    (Some(start), Some(end)) => btree.range::<Bytes, _>(start..=end),
-                    (Some(start), None) => btree.range::<Bytes, _>(start..),
-                    (None, Some(end)) => btree.range::<Bytes, _>(..=end),
-                    (None, None) => btree.range::<Bytes, _>(..),
-                };
-
-                for (key, values) in range {
-                    for value in values {
-                        results.push((key.clone(), value.clone()));
-                    }
-                }
-
-                Ok(results)
-            }
-            None => Err(SpatioLiteError::InvalidOperation(
-                "Range query not supported on spatial indexes".to_string(),
-            )),
-        }
-    }
-
-    /// Spatial intersection query (for R-tree indexes)
-    pub fn intersects(&self, rect: &Rect) -> Result<Vec<(Bytes, Bytes)>> {
-        match &self.rtree {
-            Some(rtree) => {
-                let mut results = Vec::new();
-
-                // Convert our Rect to AABB for rstar
-                let min_x = rect.min.first().copied().unwrap_or(0.0);
-                let min_y = rect.min.get(1).copied().unwrap_or(0.0);
-                let max_x = rect.max.first().copied().unwrap_or(0.0);
-                let max_y = rect.max.get(1).copied().unwrap_or(0.0);
-
-                let query_aabb = AABB::from_corners([min_x, min_y], [max_x, max_y]);
-
-                for item in rtree.locate_in_envelope_intersecting(&query_aabb) {
-                    results.push((item.key.clone(), item.value.clone()));
-                }
-
-                Ok(results)
-            }
-            None => Err(SpatioLiteError::InvalidOperation(
-                "Spatial query not supported on B-tree indexes".to_string(),
-            )),
-        }
-    }
-
-    /// Nearest neighbor query (for R-tree indexes)
-    pub fn nearest(&self, point: &[f64], max_results: usize) -> Result<Vec<(Bytes, Bytes, f64)>> {
-        match &self.rtree {
-            Some(rtree) => {
-                let mut results = Vec::new();
-
-                if point.len() >= 2 {
-                    let query_point = [point[0], point[1]];
-
-                    // Collect all items with distances and sort manually
-                    let mut candidates = Vec::new();
-
-                    for item in rtree.iter() {
-                        let envelope = item.envelope();
-                        let center_x = (envelope.lower()[0] + envelope.upper()[0]) / 2.0;
-                        let center_y = (envelope.lower()[1] + envelope.upper()[1]) / 2.0;
-
-                        // Calculate euclidean distance for sorting (will be refined later with geographic distance)
-                        let dx = center_x - query_point[0];
-                        let dy = center_y - query_point[1];
-                        let distance = (dx * dx + dy * dy).sqrt();
-
-                        candidates.push((item.key.clone(), item.value.clone(), distance));
-                    }
-
-                    // Sort by distance and take the closest ones
-                    candidates
-                        .sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap_or(std::cmp::Ordering::Equal));
-
-                    results.extend(candidates.into_iter().take(max_results));
-                }
-
-                Ok(results)
-            }
-            None => Err(SpatioLiteError::InvalidOperation(
-                "Nearest neighbor query requires R-tree index".to_string(),
-            )),
-        }
-    }
-
-    /// Get the number of items in this index
-    pub fn len(&self) -> usize {
-        match &self.btree {
-            Some(btree) => btree.values().map(|v| v.len()).sum(),
-            None => match &self.rtree {
-                Some(rtree) => rtree.size(),
-                None => 0,
-            },
-        }
-    }
-
-    /// Check if the index is empty
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-}
-
-/// Index manager handles all indexes for a database
+/// Simplified index manager focused on spatial operations only.
+///
+/// This manages spatial indexes for efficient geographic queries.
+/// It automatically handles geohash-based indexing for points.
 pub struct IndexManager {
-    indexes: HashMap<String, Index>,
+    /// Spatial indexes organized by prefix
+    spatial_indexes: HashMap<String, SpatialIndex>,
+    /// Geohash precision for indexing
+    geohash_precision: usize,
+    /// Geohash precisions to use for neighbor search
+    search_precisions: Vec<usize>,
+}
+
+/// A spatial index for a specific prefix/namespace
+struct SpatialIndex {
+    /// Points stored with their geohash keys
+    points: HashMap<String, (Point, Bytes)>,
 }
 
 impl IndexManager {
-    /// Create a new index manager
+    /// Create a new index manager with default configuration
     pub fn new() -> Self {
         Self {
-            indexes: HashMap::new(),
+            spatial_indexes: HashMap::new(),
+            geohash_precision: DEFAULT_GEOHASH_PRECISION,
+            search_precisions: DEFAULT_SEARCH_PRECISIONS.to_vec(),
         }
     }
 
-    /// Create a new B-tree index
-    pub fn create_btree_index(
-        &mut self,
-        name: String,
-        pattern: String,
-        less_func: Option<LessFunc>,
-        options: IndexOptions,
-    ) -> Result<()> {
-        if self.indexes.contains_key(&name) {
-            return Err(SpatioLiteError::IndexExists(name));
+    /// Create a new index manager with custom configuration
+    pub fn with_config(config: &Config) -> Self {
+        Self {
+            spatial_indexes: HashMap::new(),
+            geohash_precision: config.geohash_precision,
+            search_precisions: config.geohash_search_precisions.clone(),
         }
+    }
 
-        let index = Index::new_btree(name.clone(), pattern, less_func, options);
-        self.indexes.insert(name, index);
+    /// Helper method to determine if we should use full scan vs geohash optimization
+    fn should_use_full_scan(&self, prefix: &str, radius_meters: f64) -> bool {
+        let index = match self.spatial_indexes.get(prefix) {
+            Some(index) => index,
+            None => return true, // No index means no optimization possible
+        };
 
+        radius_meters > LARGE_RADIUS_THRESHOLD || index.points.len() < SMALL_DATASET_THRESHOLD
+    }
+
+    /// Insert a point into the spatial index
+    pub fn insert_point(&mut self, prefix: &str, point: &Point, data: &Bytes) -> Result<()> {
+        let index = self
+            .spatial_indexes
+            .entry(prefix.to_string())
+            .or_insert_with(SpatialIndex::new);
+
+        let geohash = point
+            .to_geohash(self.geohash_precision)
+            .map_err(|_| SpatioError::InvalidGeohash)?;
+
+        index.points.insert(geohash, (*point, data.clone()));
         Ok(())
     }
 
-    /// Create a new R-tree index
-    pub fn create_rtree_index(
-        &mut self,
-        name: String,
-        pattern: String,
-        rect_func: RectFunc,
-        options: IndexOptions,
-    ) -> Result<()> {
-        if self.indexes.contains_key(&name) {
-            return Err(SpatioLiteError::IndexExists(name));
-        }
+    /// Find nearby points within a radius
+    pub fn find_nearby(
+        &self,
+        prefix: &str,
+        center: &Point,
+        radius_meters: f64,
+        limit: usize,
+    ) -> Result<Vec<(Point, Bytes)>> {
+        let index = match self.spatial_indexes.get(prefix) {
+            Some(index) => index,
+            None => return Ok(Vec::new()),
+        };
 
-        let index = Index::new_rtree(name.clone(), pattern, rect_func, options);
-        self.indexes.insert(name, index);
+        let mut results = Vec::new();
 
-        Ok(())
-    }
-
-    /// Drop an index
-    pub fn drop_index(&mut self, name: &str) -> Result<()> {
-        if self.indexes.remove(name).is_some() {
-            Ok(())
+        // For large search radii or small datasets, use full scan instead of geohash optimization
+        if self.should_use_full_scan(prefix, radius_meters) {
+            // Check all points in the index
+            for (point, data) in index.points.values() {
+                let distance = center.distance_to(point);
+                if distance <= radius_meters {
+                    results.push((*point, data.clone()));
+                }
+            }
         } else {
-            Err(SpatioLiteError::IndexNotFound(name.to_string()))
+            // Use geohash-based search for efficiency
+            let mut candidates = std::collections::HashSet::new();
+
+            // Try multiple precision levels for better coverage
+            for precision in &self.search_precisions {
+                if let Ok(center_geohash) = center.to_geohash(*precision) {
+                    candidates.insert(center_geohash.clone());
+
+                    // Add neighbors at this precision
+                    for direction in &[
+                        geohash::Direction::N,
+                        geohash::Direction::S,
+                        geohash::Direction::E,
+                        geohash::Direction::W,
+                        geohash::Direction::NE,
+                        geohash::Direction::NW,
+                        geohash::Direction::SE,
+                        geohash::Direction::SW,
+                    ] {
+                        if let Ok(neighbor) = geohash::neighbor(&center_geohash, *direction) {
+                            candidates.insert(neighbor);
+                        }
+                    }
+                }
+            }
+
+            // Check all candidate geohashes
+            for geohash in candidates {
+                // Check if any point starts with this geohash prefix
+                for (stored_geohash, (point, data)) in &index.points {
+                    if stored_geohash.starts_with(&geohash) || geohash.starts_with(stored_geohash) {
+                        let distance = center.distance_to(point);
+                        if distance <= radius_meters {
+                            results.push((*point, data.clone()));
+                        }
+                    }
+                }
+            }
+
+            // If we didn't find enough results, fall back to full scan
+            if results.is_empty() {
+                for (point, data) in index.points.values() {
+                    let distance = center.distance_to(point);
+                    if distance <= radius_meters {
+                        results.push((*point, data.clone()));
+                    }
+                }
+            }
+        }
+
+        // Sort by distance and limit results
+        results.sort_by(|a, b| {
+            let dist_a = center.distance_to(&a.0);
+            let dist_b = center.distance_to(&b.0);
+            dist_a
+                .partial_cmp(&dist_b)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        results.truncate(limit);
+        Ok(results)
+    }
+
+    /// Find all points within a bounding box
+    pub fn find_within_bounds(
+        &self,
+        prefix: &str,
+        min_lat: f64,
+        min_lon: f64,
+        max_lat: f64,
+        max_lon: f64,
+        limit: usize,
+    ) -> Result<Vec<(Point, Bytes)>> {
+        let index = match self.spatial_indexes.get(prefix) {
+            Some(index) => index,
+            None => return Ok(Vec::new()),
+        };
+
+        let mut results = Vec::new();
+
+        // Check all points in the index
+        for (point, data) in index.points.values() {
+            if point.within_bounds(min_lat, min_lon, max_lat, max_lon) {
+                results.push((*point, data.clone()));
+                if results.len() >= limit {
+                    break;
+                }
+            }
+        }
+
+        Ok(results)
+    }
+
+    /// Check if there are any points within a circular region
+    pub fn contains_point(&self, prefix: &str, center: &Point, radius_meters: f64) -> Result<bool> {
+        let index = match self.spatial_indexes.get(prefix) {
+            Some(index) => index,
+            None => return Ok(false),
+        };
+
+        // For small datasets or large radii, just check all points
+        if self.should_use_full_scan(prefix, radius_meters) {
+            for (point, _) in index.points.values() {
+                if center.distance_to(point) <= radius_meters {
+                    return Ok(true);
+                }
+            }
+            return Ok(false);
+        }
+
+        // Use geohash-based search for efficiency
+        let mut candidates = std::collections::HashSet::new();
+
+        // Try multiple precision levels for better coverage
+        for precision in &self.search_precisions {
+            if let Ok(center_geohash) = center.to_geohash(*precision) {
+                candidates.insert(center_geohash.clone());
+
+                // Add neighbors at this precision
+                for direction in &[
+                    geohash::Direction::N,
+                    geohash::Direction::S,
+                    geohash::Direction::E,
+                    geohash::Direction::W,
+                    geohash::Direction::NE,
+                    geohash::Direction::NW,
+                    geohash::Direction::SE,
+                    geohash::Direction::SW,
+                ] {
+                    if let Ok(neighbor) = geohash::neighbor(&center_geohash, *direction) {
+                        candidates.insert(neighbor);
+                    }
+                }
+            }
+        }
+
+        // Check all candidate geohashes
+        for geohash in candidates {
+            // Check if any point starts with this geohash prefix
+            for (stored_geohash, (point, _)) in &index.points {
+                if (stored_geohash.starts_with(&geohash) || geohash.starts_with(stored_geohash))
+                    && center.distance_to(point) <= radius_meters
+                {
+                    return Ok(true);
+                }
+            }
+        }
+
+        // If geohash search didn't find anything, fall back to full scan
+        for (point, _) in index.points.values() {
+            if center.distance_to(point) <= radius_meters {
+                return Ok(true);
+            }
+        }
+
+        Ok(false)
+    }
+
+    /// Check if there are any points within a bounding box
+    pub fn intersects_bounds(
+        &self,
+        prefix: &str,
+        min_lat: f64,
+        min_lon: f64,
+        max_lat: f64,
+        max_lon: f64,
+    ) -> Result<bool> {
+        let index = match self.spatial_indexes.get(prefix) {
+            Some(index) => index,
+            None => return Ok(false),
+        };
+
+        // Check if any point intersects with the bounding box
+        for (point, _) in index.points.values() {
+            if point.within_bounds(min_lat, min_lon, max_lat, max_lon) {
+                return Ok(true);
+            }
+        }
+
+        Ok(false)
+    }
+
+    /// Count points within a distance from a center point
+    pub fn count_within_distance(
+        &self,
+        prefix: &str,
+        center: &Point,
+        radius_meters: f64,
+    ) -> Result<usize> {
+        let index = match self.spatial_indexes.get(prefix) {
+            Some(index) => index,
+            None => return Ok(0),
+        };
+
+        let mut count = 0;
+
+        // For small datasets or large radii, just check all points
+        if self.should_use_full_scan(prefix, radius_meters) {
+            for (point, _) in index.points.values() {
+                if center.distance_to(point) <= radius_meters {
+                    count += 1;
+                }
+            }
+            return Ok(count);
+        }
+
+        // Use geohash-based search for efficiency
+        let mut candidates = std::collections::HashSet::new();
+
+        // Try multiple precision levels for better coverage
+        for precision in &self.search_precisions {
+            if let Ok(center_geohash) = center.to_geohash(*precision) {
+                candidates.insert(center_geohash.clone());
+
+                // Add neighbors at this precision
+                for direction in &[
+                    geohash::Direction::N,
+                    geohash::Direction::S,
+                    geohash::Direction::E,
+                    geohash::Direction::W,
+                    geohash::Direction::NE,
+                    geohash::Direction::NW,
+                    geohash::Direction::SE,
+                    geohash::Direction::SW,
+                ] {
+                    if let Ok(neighbor) = geohash::neighbor(&center_geohash, *direction) {
+                        candidates.insert(neighbor);
+                    }
+                }
+            }
+        }
+
+        // Check all candidate geohashes
+        let mut found_points = std::collections::HashSet::new();
+        for geohash in candidates {
+            // Check if any point starts with this geohash prefix
+            for (stored_geohash, (point, _)) in &index.points {
+                if (stored_geohash.starts_with(&geohash) || geohash.starts_with(stored_geohash))
+                    && center.distance_to(point) <= radius_meters
+                {
+                    // Use point coordinates as key to avoid double counting
+                    found_points.insert((point.lat.to_bits(), point.lon.to_bits()));
+                }
+            }
+        }
+
+        count = found_points.len();
+
+        // If geohash search didn't find anything, fall back to full scan
+        if count == 0 {
+            for (point, _) in index.points.values() {
+                if center.distance_to(point) <= radius_meters {
+                    count += 1;
+                }
+            }
+        }
+
+        Ok(count)
+    }
+
+    /// Remove a point from the spatial index
+    pub fn remove_point(&mut self, prefix: &str, point: &Point) -> Result<()> {
+        if let Some(index) = self.spatial_indexes.get_mut(prefix) {
+            let geohash = point
+                .to_geohash(self.geohash_precision)
+                .map_err(|_| SpatioError::InvalidGeohash)?;
+            index.points.remove(&geohash);
+        }
+        Ok(())
+    }
+
+    /// Get statistics about spatial indexes
+    pub fn stats(&self) -> IndexStats {
+        let mut total_points = 0;
+        let index_count = self.spatial_indexes.len();
+
+        for index in self.spatial_indexes.values() {
+            total_points += index.points.len();
+        }
+
+        IndexStats {
+            index_count,
+            total_points,
         }
     }
+}
 
-    /// Get an index by name
-    pub fn get_index(&self, name: &str) -> Option<&Index> {
-        self.indexes.get(name)
-    }
-
-    /// Get a mutable reference to an index by name
-    pub fn get_index_mut(&mut self, name: &str) -> Option<&mut Index> {
-        self.indexes.get_mut(name)
-    }
-
-    /// Insert an item into all matching indexes
-    pub fn insert_item(&mut self, key: &Bytes, value: &Bytes) {
-        for index in self.indexes.values_mut() {
-            let _ = index.insert(key, value);
+impl SpatialIndex {
+    fn new() -> Self {
+        Self {
+            points: HashMap::new(),
         }
     }
+}
 
-    /// Remove an item from all matching indexes
-    pub fn remove_item(&mut self, key: &Bytes, value: &Bytes) {
-        for index in self.indexes.values_mut() {
-            let _ = index.remove(key, value);
-        }
-    }
-
-    /// List all index names
-    pub fn list_indexes(&self) -> Vec<String> {
-        self.indexes.keys().cloned().collect()
-    }
-
-    /// Get the number of indexes
-    pub fn len(&self) -> usize {
-        self.indexes.len()
-    }
-
-    /// Check if there are no indexes
-    pub fn is_empty(&self) -> bool {
-        self.indexes.is_empty()
-    }
+/// Statistics about the index manager
+#[derive(Debug)]
+pub struct IndexStats {
+    pub index_count: usize,
+    pub total_points: usize,
 }
 
 impl Default for IndexManager {
@@ -407,139 +413,108 @@ impl Default for IndexManager {
     }
 }
 
-/// Simple glob-like pattern matching
-fn pattern_match(pattern: &str, text: &str, case_insensitive: bool) -> bool {
-    let pattern = if case_insensitive {
-        pattern.to_lowercase()
-    } else {
-        pattern.to_string()
-    };
-    let text = if case_insensitive {
-        text.to_lowercase()
-    } else {
-        text.to_string()
-    };
-
-    // Implement glob pattern matching with wildcards
-    if pattern == "*" {
-        return true;
-    }
-
-    glob_match(&pattern, &text)
-}
-
-/// Simple glob pattern matching implementation
-fn glob_match(pattern: &str, text: &str) -> bool {
-    let pattern_chars: Vec<char> = pattern.chars().collect();
-    let text_chars: Vec<char> = text.chars().collect();
-
-    fn match_recursive(pattern: &[char], text: &[char], p_idx: usize, t_idx: usize) -> bool {
-        // End of pattern
-        if p_idx >= pattern.len() {
-            return t_idx >= text.len();
-        }
-
-        // End of text but pattern remains
-        if t_idx >= text.len() {
-            // Only valid if remaining pattern is all '*'
-            return pattern[p_idx..].iter().all(|&c| c == '*');
-        }
-
-        match pattern[p_idx] {
-            '*' => {
-                // Try matching zero or more characters
-                for i in t_idx..=text.len() {
-                    if match_recursive(pattern, text, p_idx + 1, i) {
-                        return true;
-                    }
-                }
-                false
-            }
-            '?' => {
-                // Match exactly one character
-                match_recursive(pattern, text, p_idx + 1, t_idx + 1)
-            }
-            c => {
-                // Match exact character
-                if text[t_idx] == c {
-                    match_recursive(pattern, text, p_idx + 1, t_idx + 1)
-                } else {
-                    false
-                }
-            }
-        }
-    }
-
-    match_recursive(&pattern_chars, &text_chars, 0, 0)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::spatial::Point;
+    use bytes::Bytes;
 
     #[test]
-    fn test_index_manager_creation() {
+    fn test_default_geohash_precision() {
         let manager = IndexManager::new();
-        assert!(manager.is_empty());
-        assert_eq!(manager.len(), 0);
+        assert_eq!(manager.geohash_precision, DEFAULT_GEOHASH_PRECISION);
+        assert_eq!(manager.search_precisions, DEFAULT_SEARCH_PRECISIONS);
     }
 
     #[test]
-    fn test_btree_index_creation() {
-        let mut manager = IndexManager::new();
-
-        manager
-            .create_btree_index(
-                "test_index".to_string(),
-                "*".to_string(),
-                None,
-                IndexOptions::default(),
-            )
-            .unwrap();
-
-        assert_eq!(manager.len(), 1);
-        assert!(manager.get_index("test_index").is_some());
-    }
-
-    #[test]
-    fn test_rtree_index_creation() {
-        let mut manager = IndexManager::new();
-
-        let rect_func =
-            Box::new(|_value: &[u8]| -> Result<Rect> { Ok(Rect::point(vec![1.0, 2.0])) });
-
-        manager
-            .create_rtree_index(
-                "spatial_index".to_string(),
-                "*".to_string(),
-                rect_func,
-                IndexOptions::default(),
-            )
-            .unwrap();
-
-        assert_eq!(manager.len(), 1);
-        assert!(manager.get_index("spatial_index").is_some());
-    }
-
-    #[test]
-    fn test_pattern_matching() {
-        assert!(pattern_match("*", "anything", false));
-        assert!(pattern_match("test", "test", false));
-        assert!(!pattern_match("test", "TEST", false));
-        assert!(pattern_match("test", "TEST", true));
-    }
-
-    #[test]
-    fn test_spatial_item() {
-        let rect = Rect::point(vec![1.0, 2.0]);
-        let item = SpatialItem {
-            key: Bytes::from("key1"),
-            value: Bytes::from("value1"),
-            rect,
+    fn test_custom_geohash_precision() {
+        let config = Config {
+            geohash_precision: 10,
+            geohash_search_precisions: vec![8, 9, 10],
+            ..Default::default()
         };
 
-        let envelope = item.envelope();
-        assert_eq!(envelope.lower(), [1.0, 2.0]);
-        assert_eq!(envelope.upper(), [1.0, 2.0]);
+        let manager = IndexManager::with_config(&config);
+        assert_eq!(manager.geohash_precision, 10);
+        assert_eq!(manager.search_precisions, vec![8, 9, 10]);
+    }
+
+    #[test]
+    fn test_insert_and_remove_with_custom_precision() -> Result<()> {
+        let config = Config {
+            geohash_precision: 6, // Lower precision for testing
+            ..Default::default()
+        };
+
+        let mut manager = IndexManager::with_config(&config);
+        let point = Point::new(40.7128, -74.0060);
+        let data = Bytes::from("test_data");
+
+        // Insert point
+        manager.insert_point("test", &point, &data)?;
+
+        // Verify it exists
+        let nearby = manager.find_nearby("test", &point, 1000.0, 10)?;
+        assert_eq!(nearby.len(), 1);
+
+        // Remove point
+        manager.remove_point("test", &point)?;
+
+        // Verify it's gone
+        let nearby_after = manager.find_nearby("test", &point, 1000.0, 10)?;
+        assert_eq!(nearby_after.len(), 0);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_search_with_different_precisions() -> Result<()> {
+        // Test with single precision
+        let config1 = Config {
+            geohash_search_precisions: vec![7],
+            ..Default::default()
+        };
+        let mut manager1 = IndexManager::with_config(&config1);
+
+        // Test with multiple precisions
+        let config2 = Config {
+            geohash_search_precisions: vec![6, 7, 8, 9],
+            ..Default::default()
+        };
+        let mut manager2 = IndexManager::with_config(&config2);
+
+        let point = Point::new(40.7128, -74.0060);
+        let data = Bytes::from("test_data");
+
+        // Insert into both managers
+        manager1.insert_point("test", &point, &data)?;
+        manager2.insert_point("test", &point, &data)?;
+
+        // Both should find the point
+        let results1 = manager1.find_nearby("test", &point, 1000.0, 10)?;
+        let results2 = manager2.find_nearby("test", &point, 1000.0, 10)?;
+
+        assert_eq!(results1.len(), 1);
+        assert_eq!(results2.len(), 1);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_constants_are_reasonable() {
+        // Ensure constants are within valid geohash precision range
+        assert!((1..=12).contains(&DEFAULT_GEOHASH_PRECISION));
+
+        for &precision in DEFAULT_SEARCH_PRECISIONS {
+            assert!((1..=12).contains(&precision));
+        }
+
+        // Ensure search precisions include the default precision or are around it
+        assert!(
+            DEFAULT_SEARCH_PRECISIONS.contains(&DEFAULT_GEOHASH_PRECISION)
+                || DEFAULT_SEARCH_PRECISIONS
+                    .iter()
+                    .any(|&p| (p as i32 - DEFAULT_GEOHASH_PRECISION as i32).abs() <= 1)
+        );
     }
 }

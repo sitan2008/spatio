@@ -258,10 +258,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n--- Database Statistics ---");
 
     let stats = db.stats()?;
-    let spatial_stats = db.spatial_stats()?;
 
     println!("Total database keys: {}", stats.key_count);
-    println!("Total spatial points: {}", spatial_stats.total_points);
 
     // Note: In a real application, you could track trajectory keys separately
     println!("Trajectory-related operations completed successfully");

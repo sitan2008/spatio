@@ -60,46 +60,12 @@ fn benchmark_spatial_operations(c: &mut Criterion) {
             let lat = 40.7128 + (counter as f64 * 0.001);
             let lon = -74.0060 + (counter as f64 * 0.001);
             let point = Point::new(lat, lon);
-            let key = format!("spatial:{}", counter);
-            counter += 1;
-            db.insert_point(black_box(&key), black_box(&point), None)
-                .unwrap()
-        })
-    });
-
-    // Benchmark geohash insertion
-    group.bench_function("geohash_insert", |b| {
-        let mut counter = 0;
-        b.iter(|| {
-            let lat = 40.7128 + ((counter % 1000) as f64 * 0.0001);
-            let lon = -74.0060 + ((counter % 1000) as f64 * 0.0001);
-            let point = Point::new(lat, lon);
+            let _key = format!("spatial:{}", counter);
             let data = format!("data:{}", counter);
             counter += 1;
-            db.insert_point_with_geohash(
-                "geohash_bench",
+            db.insert_point(
+                black_box("spatial_bench"),
                 black_box(&point),
-                8,
-                black_box(data.as_bytes()),
-                None,
-            )
-            .unwrap()
-        })
-    });
-
-    // Benchmark S2 cell insertion
-    group.bench_function("s2_insert", |b| {
-        let mut counter = 0;
-        b.iter(|| {
-            let lat = 40.7128 + ((counter % 1000) as f64 * 0.0001);
-            let lon = -74.0060 + ((counter % 1000) as f64 * 0.0001);
-            let point = Point::new(lat, lon);
-            let data = format!("data:{}", counter);
-            counter += 1;
-            db.insert_point_with_s2(
-                "s2_bench",
-                black_box(&point),
-                16,
                 black_box(data.as_bytes()),
                 None,
             )
@@ -113,15 +79,15 @@ fn benchmark_spatial_operations(c: &mut Criterion) {
         let lon = -74.0060 + (i as f64 * 0.0001);
         let point = Point::new(lat, lon);
         let data = format!("query_data:{}", i);
-        db.insert_point_with_geohash("query_bench", &point, 8, data.as_bytes(), None)
+        db.insert_point("query_bench", &point, data.as_bytes(), None)
             .unwrap();
     }
 
-    // Benchmark nearest neighbor search
+    // Benchmark nearby search
     let center = Point::new(40.7128, -74.0060);
-    group.bench_function("nearest_neighbors", |b| {
+    group.bench_function("nearby_search", |b| {
         b.iter(|| {
-            db.find_nearest_neighbors(
+            db.find_nearby(
                 black_box("query_bench"),
                 black_box(&center),
                 black_box(1000.0),
@@ -262,8 +228,9 @@ fn benchmark_large_datasets(c: &mut Criterion) {
             let lat = 40.0 + (i as f64 * 0.00001);
             let lon = -74.0 + (i as f64 * 0.00001);
             let point = Point::new(lat, lon);
-            let key = format!("large_dataset:{}", i);
-            db.insert_point(&key, &point, None).unwrap();
+            let data = format!("data:{}", i);
+            db.insert_point("large_dataset", &point, data.as_bytes(), None)
+                .unwrap();
         }
 
         group.bench_with_input(
@@ -272,7 +239,7 @@ fn benchmark_large_datasets(c: &mut Criterion) {
             |b, &_size| {
                 let center = Point::new(40.5, -74.5);
                 b.iter(|| {
-                    db.find_nearest_neighbors(
+                    db.find_nearby(
                         black_box("large_dataset"),
                         black_box(&center),
                         black_box(10000.0),
