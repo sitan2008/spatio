@@ -11,6 +11,8 @@ pub enum SpatioError {
     InvalidGeohash,
     /// Serialization/deserialization error
     SerializationError,
+    /// Serialization error with context
+    SerializationErrorWithContext(String),
     /// I/O error from persistence layer
     Io(std::io::Error),
     /// Generic error with message
@@ -24,6 +26,9 @@ impl fmt::Display for SpatioError {
             SpatioError::LockError => write!(f, "Failed to acquire lock"),
             SpatioError::InvalidGeohash => write!(f, "Invalid geohash"),
             SpatioError::SerializationError => write!(f, "Serialization error"),
+            SpatioError::SerializationErrorWithContext(context) => {
+                write!(f, "Serialization error: {}", context)
+            }
             SpatioError::Io(err) => write!(f, "I/O error: {}", err),
             SpatioError::Other(msg) => write!(f, "{}", msg),
         }

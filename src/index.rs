@@ -4,6 +4,12 @@ use bytes::Bytes;
 use geohash;
 use std::collections::HashMap;
 
+/// Threshold for large search radius in meters
+const LARGE_RADIUS_THRESHOLD: f64 = 100_000.0;
+
+/// Threshold for small dataset size
+const SMALL_DATASET_THRESHOLD: usize = 1000;
+
 /// Simplified index manager focused on spatial operations only.
 ///
 /// This manages spatial indexes for efficient geographic queries.
@@ -25,6 +31,16 @@ impl IndexManager {
         Self {
             spatial_indexes: HashMap::new(),
         }
+    }
+
+    /// Helper method to determine if we should use full scan vs geohash optimization
+    fn should_use_full_scan(&self, prefix: &str, radius_meters: f64) -> bool {
+        let index = match self.spatial_indexes.get(prefix) {
+            Some(index) => index,
+            None => return true, // No index means no optimization possible
+        };
+
+        radius_meters > LARGE_RADIUS_THRESHOLD || index.points.len() < SMALL_DATASET_THRESHOLD
     }
 
     /// Insert a point into the spatial index
@@ -57,9 +73,8 @@ impl IndexManager {
 
         let mut results = Vec::new();
 
-        // For large search radii or when geohash approach doesn't find enough points,
-        // fall back to checking all points
-        if radius_meters > 100_000.0 || index.points.len() < 1000 {
+        // For large search radii or small datasets, use full scan instead of geohash optimization
+        if self.should_use_full_scan(prefix, radius_meters) {
             // Check all points in the index
             for (point, data) in index.points.values() {
                 let distance = center.distance_to(point);
@@ -169,7 +184,7 @@ impl IndexManager {
         };
 
         // For small datasets or large radii, just check all points
-        if radius_meters > 100_000.0 || index.points.len() < 1000 {
+        if self.should_use_full_scan(prefix, radius_meters) {
             for (point, _) in index.points.values() {
                 if center.distance_to(point) <= radius_meters {
                     return Ok(true);
@@ -265,7 +280,7 @@ impl IndexManager {
         let mut count = 0;
 
         // For small datasets or large radii, just check all points
-        if radius_meters > 100_000.0 || index.points.len() < 1000 {
+        if self.should_use_full_scan(prefix, radius_meters) {
             for (point, _) in index.points.values() {
                 if center.distance_to(point) <= radius_meters {
                     count += 1;

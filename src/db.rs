@@ -354,8 +354,12 @@ impl DB {
     ) -> Result<()> {
         for (i, (point, timestamp)) in trajectory.iter().enumerate() {
             let key = format!("traj:{}:{:010}:{:06}", object_id, timestamp, i);
-            let point_data = bincode::serialize(&(point, timestamp))
-                .map_err(|_| SpatioError::SerializationError)?;
+            let point_data = bincode::serialize(&(point, timestamp)).map_err(|e| {
+                SpatioError::SerializationErrorWithContext(format!(
+                    "Failed to serialize trajectory point for object '{}': {}",
+                    object_id, e
+                ))
+            })?;
 
             self.insert(&key, &point_data, opts.clone())?;
         }
@@ -406,9 +410,18 @@ impl DB {
                 continue;
             }
 
-            if let Ok((point, timestamp)) = bincode::deserialize::<(Point, u64)>(&item.value) {
-                if timestamp >= start_time && timestamp <= end_time {
-                    results.push((point, timestamp));
+            match bincode::deserialize::<(Point, u64)>(&item.value) {
+                Ok((point, timestamp)) => {
+                    if timestamp >= start_time && timestamp <= end_time {
+                        results.push((point, timestamp));
+                    }
+                }
+                Err(e) => {
+                    // Log deserialization error but continue processing other points
+                    eprintln!(
+                        "Warning: Failed to deserialize trajectory point for object '{}': {}",
+                        object_id, e
+                    );
                 }
             }
         }
