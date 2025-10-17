@@ -5,7 +5,7 @@ build-backend = "maturin"
 [project]
 name = "spatio"
 description = "Blazingly fast spatial database library"
-readme = "README.md"
+readme = { file = "README.md", content-type = "text/markdown" }
 authors = [
   { name = "Petro Kvartsianyi", email = "pkvartsianyi@example.com" },
 ]
@@ -85,6 +85,27 @@ all = [
 module-name = "spatio._spatio"
 python-source = "src"
 strip = true
+include = [
+    { path = "README.md", format = "sdist" },
+    { path = "LICENSE", format = "sdist" },
+    { path = "pyproject.toml", format = "sdist" },
+    { path = "Cargo.toml", format = "sdist" },
+    { path = "Cargo.lock", format = "sdist" },
+    { path = "src/**/*.py", format = "sdist" },
+    { path = "src/**/*.pyi", format = "sdist" },
+    { path = "src/**/*.rs", format = "sdist" }
+]
+exclude = [
+    "target/**",
+    ".venv/**",
+    ".pytest_cache/**",
+    ".mypy_cache/**",
+    ".ruff_cache/**",
+    "htmlcov/**",
+    "dist/**",
+    "*.egg-info/**",
+    "__pycache__/**"
+]
 
 [tool.ruff]
 line-length = 88
