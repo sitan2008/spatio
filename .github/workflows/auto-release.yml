@@ -207,9 +207,34 @@ jobs:
         working-directory: py-spatio
         run: |
           # Build wheel and install it
-          maturin build --out dist
+          maturin build --out dist --interpreter python
           pip install dist/*.whl --force-reinstall --no-deps
-          pytest -v
+          pytest -v --tb=short -x --maxfail=5
+        env:
+          # Windows-specific environment variables
+          PYTHONIOENCODING: utf-8
+          # Increase timeout for Windows builds
+          PYTEST_TIMEOUT: 300
+
+      - name: Debug Windows environment
+        if: matrix.os == 'windows-latest' && failure()
+        working-directory: py-spatio
+        run: |
+          echo "Python version: $(python --version)"
+          echo "Pip version: $(pip --version)"
+          echo "Rust version: $(rustc --version)"
+          echo "Cargo version: $(cargo --version)"
+          echo "Maturin version: $(maturin --version)"
+          echo "Current directory: $(pwd)"
+          echo "Directory contents:"
+          ls -la
+          echo "Dist contents:"
+          ls -la dist/ || echo "No dist directory"
+          echo "Target contents:"
+          ls -la target/ || echo "No target directory"
+          python -c "import sys; print('Python path:', sys.path)"
+          python -c "import platform; print('Platform:', platform.platform())"
+        shell: bash
 
       - name: Run Python linting (Python 3.11, Ubuntu only)
         if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'

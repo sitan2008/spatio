@@ -87,6 +87,8 @@ python-source = "src"
 strip = true
 manifest-path = "Cargo.toml"
 
+
+
 [tool.ruff]
 line-length = 88
 fix = true
@@ -161,6 +163,7 @@ addopts = [
   "--tb=short",
   "-v",
 ]
+
 markers = [
   "slow: Tests with longer runtime",
   "benchmark: Performance benchmark tests",
@@ -171,7 +174,9 @@ filterwarnings = [
   "error",
   "ignore::UserWarning",
   "ignore::DeprecationWarning",
+  "ignore::pytest.PytestUnraisableExceptionWarning",
 ]
+
 
 [tool.coverage.run]
 source = ["src"]
