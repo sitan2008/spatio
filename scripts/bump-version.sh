@@ -120,10 +120,14 @@ if [[ "$PACKAGE" != "rust" && "$PACKAGE" != "python" && "$PACKAGE" != "both" ]];
     exit 1
 fi
 
+# Remove 'v' prefix if present
+NEW_VERSION=${NEW_VERSION#v}
+
 # Validate version format
 if ! [[ "$NEW_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+(\.[0-9]+)?)?$ ]]; then
     print_error "Invalid version format: $NEW_VERSION"
     print_error "Expected format: X.Y.Z or X.Y.Z-prerelease (e.g., 1.0.0, 1.0.0-alpha.1)"
+    print_error "Note: 'v' prefix is automatically removed if present"
     exit 1
 fi
 
@@ -251,7 +255,14 @@ if [[ "$DRY_RUN" == false && "$NO_COMMIT" == false ]]; then
             ;;
     esac
 
-    git add "${FILES_TO_ADD[@]}"
+    # Add files, using -f for potentially ignored lock files
+    for file in "${FILES_TO_ADD[@]}"; do
+        if [[ "$file" == *"Cargo.lock" ]]; then
+            git add -f "$file" 2>/dev/null || print_warning "Could not add $file (might be ignored)"
+        else
+            git add "$file"
+        fi
+    done
 
     COMMIT_MSG="bump $PACKAGE version to $NEW_VERSION"
     if git commit -m "$COMMIT_MSG"; then
@@ -275,8 +286,7 @@ elif [[ "$NO_COMMIT" == true ]]; then
 else
     print_info "Changes committed."
     print_info ""
-    print_info "Next step: Push changes to trigger auto-release"
-    print_info "  git push origin main"
+    print_info "Next step: Merge changes to trigger auto-release"
 fi
 
 print_info ""
