@@ -157,25 +157,25 @@ cargo run --example comprehensive_demo
 
 ## Use Cases
 
-### Location-Based Services
-- **Geofencing**: Track when objects enter/leave geographic regions
-- **Proximity Search**: Find nearby points of interest, users, or services
-- **Location Analytics**: Analyze spatial patterns and relationships
+### Local Spatial Analytics
+- **Proximity Search**: Efficiently find nearby features or points of interest  
+- **Containment Queries**: Check if points or geometries lie within defined areas  
+- **Spatial Relationships**: Analyse intersections, distances, and overlaps between geometries  
 
-### Vehicle & Asset Tracking
-- **Fleet Management**: Track vehicle locations and routes in real-time
-- **Delivery Optimization**: Find nearest drivers or optimal delivery routes
-- **Movement Analysis**: Analyze movement patterns and efficiency
+### Edge & Embedded Systems
+- **On-Device Processing**: Run spatial queries directly on IoT, drones, or edge devices  
+- **Offline Operation**: Perform location analytics without cloud or network access  
+- **Energy Efficiency**: Optimised for low memory and CPU usage in constrained environments  
 
-### IoT & Sensor Networks
-- **Environmental Monitoring**: Track sensor data with geographic context
-- **Smart Cities**: Manage spatially-distributed infrastructure
-- **Asset Management**: Monitor equipment locations and status
+### Developer & Research Tools
+- **Python Integration**: Use Spatio natively in data analysis or geospatial notebooks  
+- **Simulation Support**: Model trajectories and spatial behaviours locally  
+- **Lightweight Backend**: Ideal for prototypes, research projects, or local GIS tools  
 
-### Real-time Analytics
-- **Geospatial Dashboards**: Build real-time location-aware applications
-- **Event Processing**: Process location-based events with temporal context
-- **Spatial Aggregation**: Compute statistics over geographic regions
+### Offline & Mobile Applications
+- **Local Data Storage**: Keep spatial data close to the application  
+- **Fast Query Engine**: Sub-millisecond lookups for geometry and location queries  
+- **Self-Contained**: No external dependencies or server required  
 
 ## API Overview
 
