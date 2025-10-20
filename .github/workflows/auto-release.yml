@@ -187,8 +187,13 @@ jobs:
           CARGO_TERM_COLOR: always
         run: |
           echo "Building platform wheels..."
-          maturin build --release --out dist --interpreter python
-          ls -lh dist
+          maturin build --release --out dist --interpreter python --skip-sdist
+          echo "Listing contents of dist directory..."
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            dir dist
+          else
+            ls -lh dist
+          fi
 
       - name: Upload built artifacts
         uses: actions/upload-artifact@v4
