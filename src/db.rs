@@ -10,7 +10,7 @@ use std::path::Path;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::time::SystemTime;
 
-/// Main Spatio database structure providing thread-safe spatial and temporal data storage.
+/// Main Spatio database structure providing spatial and temporal data storage.
 ///
 /// The `DB` struct is the core of Spatio, offering:
 /// - Key-value storage with spatial indexing
@@ -121,9 +121,7 @@ impl DB {
     /// use spatio::{Spatio, Config};
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let mut config = Config::default();
-    /// config.geohash_precision = 10; // Higher precision for dense urban areas
-    /// config.geohash_search_precisions = vec![8, 9, 10]; // Custom search precisions
+    /// let config = Config::with_geohash_precision(10); // Higher precision for dense urban areas
     ///
     /// let db = Spatio::open_with_config("my_database.db", config)?;
     /// # Ok(())
@@ -145,8 +143,8 @@ impl DB {
 
         // Initialize persistence if not in-memory
         if !is_memory {
-            let aof_file = AOFFile::open(path)?;
-            inner.load_from_aof(&aof_file)?;
+            let mut aof_file = AOFFile::open(path)?;
+            inner.load_from_aof(&mut aof_file)?;
             inner.aof_file = Some(aof_file);
         }
 
@@ -207,14 +205,12 @@ impl DB {
         let value_bytes = Bytes::copy_from_slice(value.as_ref());
 
         let item = match opts {
-            Some(SetOptions { ttl: Some(ttl), .. }) => {
-                DbItem::with_ttl(key_bytes.clone(), value_bytes, ttl)
-            }
+            Some(SetOptions { ttl: Some(ttl), .. }) => DbItem::with_ttl(value_bytes, ttl),
             Some(SetOptions {
                 expires_at: Some(expires_at),
                 ..
-            }) => DbItem::with_expiration(key_bytes.clone(), value_bytes, expires_at),
-            _ => DbItem::new(key_bytes.clone(), value_bytes),
+            }) => DbItem::with_expiration(value_bytes, expires_at),
+            _ => DbItem::new(value_bytes),
         };
 
         let mut inner = self.write()?;
@@ -307,14 +303,12 @@ impl DB {
 
         // Insert into main storage
         let item = match opts {
-            Some(SetOptions { ttl: Some(ttl), .. }) => {
-                DbItem::with_ttl(key_bytes.clone(), data_ref.clone(), ttl)
-            }
+            Some(SetOptions { ttl: Some(ttl), .. }) => DbItem::with_ttl(data_ref.clone(), ttl),
             Some(SetOptions {
                 expires_at: Some(expires_at),
                 ..
-            }) => DbItem::with_expiration(key_bytes.clone(), data_ref.clone(), expires_at),
-            _ => DbItem::new(key_bytes.clone(), data_ref.clone()),
+            }) => DbItem::with_expiration(data_ref.clone(), expires_at),
+            _ => DbItem::new(data_ref.clone()),
         };
 
         inner.insert_item(key_bytes.clone(), item);
@@ -724,9 +718,10 @@ impl DBInner {
     }
 
     /// Load data from AOF file
-    pub fn load_from_aof(&mut self, aof_file: &AOFFile) -> Result<()> {
-        let mut aof_file = aof_file.clone();
-        aof_file.replay(|command| {
+    pub fn load_from_aof(&mut self, aof_file: &mut AOFFile) -> Result<()> {
+        let commands = aof_file.replay()?;
+
+        for command in commands {
             match command {
                 AOFCommand::Set {
                     key,
@@ -734,7 +729,6 @@ impl DBInner {
                     expires_at,
                 } => {
                     let item = DbItem {
-                        key: key.clone(),
                         value: value.clone(),
                         expires_at,
                     };
@@ -761,14 +755,8 @@ impl DBInner {
                         }
                     }
                 }
-                AOFCommand::Expire { key, expires_at } => {
-                    if let Some(item) = self.keys.get_mut(&key) {
-                        item.expires_at = Some(expires_at);
-                    }
-                }
             }
-            Ok(())
-        })?;
+        }
 
         self.stats.key_count = self.keys.len();
         Ok(())
