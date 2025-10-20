@@ -181,13 +181,13 @@ jobs:
         with:
           platforms: arm64
 
-      - name: Build Python artifacts (wheel + sdist)
+      - name: Build Python artifacts (wheels for all platforms)
         working-directory: py-spatio
         env:
           CARGO_TERM_COLOR: always
         run: |
-          maturin build --release --out dist --interpreter python
-          maturin sdist --out dist
+          echo "Building platform wheels..."
+          maturin build --release --out dist --interpreter python --skip-sdist
           ls -lh dist
 
       - name: Upload built artifacts
