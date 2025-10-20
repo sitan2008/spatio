@@ -237,6 +237,91 @@ if [[ "$DRY_RUN" == false ]]; then
     esac
 fi
 
+# --- CHANGELOG GENERATION ----------------------------------------------------
+
+# --- CHANGELOG GENERATION ----------------------------------------------------
+
+update_changelog() {
+    print_info "Rebuilding CHANGELOG.md from latest release..."
+
+    local changelog_file="CHANGELOG.md"
+    local temp_file
+    temp_file=$(mktemp)
+
+    {
+        echo "# Changelog"
+        echo ""
+        echo "All notable changes since the last release are documented below."
+        echo ""
+    } > "$temp_file"
+
+    git fetch --tags --quiet || true
+
+    # Get the most recent tag (sorted by version)
+    local last_tag
+    last_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+    if [[ -z "$last_tag" ]]; then
+        print_warning "No previous tag found — using entire commit history."
+        last_tag=$(git rev-list --max-parents=0 HEAD)
+    fi
+
+    local date
+    date=$(date +%Y-%m-%d)
+    echo "## [$NEW_VERSION] - $date" >> "$temp_file"
+
+    print_info "Generating changelog since tag: ${last_tag}"
+
+    # Collect commits between last tag and HEAD
+    local commits
+    commits=$(git log "${last_tag}"..HEAD --pretty=format:"%s" || true)
+
+    if [[ -z "$commits" ]]; then
+        echo "(no new commits since ${last_tag})" >> "$temp_file"
+        mv "$temp_file" "$changelog_file"
+        print_warning "No new commits to include in changelog."
+        return
+    fi
+
+    local added changed fixed
+    added=""; changed=""; fixed=""
+
+    while IFS= read -r commit; do
+        msg="${commit#*: }"
+        msg="${msg# }"
+        case "$commit" in
+            feat:*|feature:*) added="${added}\n- ${msg}" ;;
+            fix:*|bugfix:*) fixed="${fixed}\n- ${msg}" ;;
+            refactor:*|chore:*|style:*) changed="${changed}\n- ${msg}" ;;
+            bump*version*) ;; # skip version bumps
+            *) changed="${changed}\n- ${commit}" ;;
+        esac
+    done <<< "$commits"
+
+    [[ -n "$added" ]] && echo -e "\n### Added${added}" >> "$temp_file"
+    [[ -n "$changed" ]] && echo -e "\n### Changed${changed}" >> "$temp_file"
+    [[ -n "$fixed" ]] && echo -e "\n### Fixed${fixed}" >> "$temp_file"
+
+    echo "" >> "$temp_file"
+
+    mv "$temp_file" "$changelog_file"
+    print_success "CHANGELOG.md regenerated for commits since ${last_tag}"
+}
+
+if [[ "$DRY_RUN" == false ]]; then
+    print_info "Generating CHANGELOG.md from latest commits..."
+    update_changelog
+fi
+
+# ------------------------------------------------------------------------------
+
+if [[ "$DRY_RUN" == false ]]; then
+    print_info "Generating CHANGELOG.md from git history..."
+    update_changelog
+fi
+
+# ------------------------------------------------------------------------------
+
 # Commit changes
 if [[ "$DRY_RUN" == false && "$NO_COMMIT" == false ]]; then
     print_info "Committing version changes..."
@@ -251,7 +336,7 @@ if [[ "$DRY_RUN" == false && "$NO_COMMIT" == false ]]; then
             FILES_TO_ADD=("py-spatio/Cargo.toml" "py-spatio/Cargo.lock")
             ;;
         "both")
-            FILES_TO_ADD=("Cargo.toml" "Cargo.lock" "py-spatio/Cargo.toml" "py-spatio/Cargo.lock")
+            FILES_TO_ADD=("Cargo.toml" "Cargo.lock" "py-spatio/Cargo.toml" "py-spatio/Cargo.lock" "CHANGELOG.md")
             ;;
     esac
 
