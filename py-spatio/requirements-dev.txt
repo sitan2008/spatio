@@ -16,15 +16,3 @@ pre-commit>=3.0.0
 maturin>=1.0,<2.0
 build>=0.10.0
 twine>=4.0.0
-
-
-
-# Interop testing
-numpy>=1.19.0
-pandas>=1.0.0
-geopandas>=0.10.0
-pyarrow>=7.0.0
-
-# Visualization (for examples)
-matplotlib>=3.0.0
-folium>=0.12.0
