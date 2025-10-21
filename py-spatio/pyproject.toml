@@ -10,7 +10,7 @@ authors = [
   { name = "Petro Kvartsianyi", email = "pkvartsianyi@example.com" },
 ]
 dynamic = ["version"]
-license = { file = "LICENSE" }
+license-file = "LICENSE"
 requires-python = ">=3.8"
 
 keywords = ["spatial", "database", "geospatial", "embedded", "temporal", "gis"]
