@@ -183,6 +183,7 @@ jobs:
 
       - name: Build Python artifacts (wheels for all platforms)
         working-directory: py-spatio
+        shell: bash
         env:
           CARGO_TERM_COLOR: always
         run: |
