@@ -124,6 +124,7 @@ jobs:
         working-directory: py-spatio
         run: |
           python -m pip install --upgrade pip
+          pip install --upgrade setuptools
           pip install maturin pytest -r requirements-dev.txt
 
       - name: Build wheel with maturin
