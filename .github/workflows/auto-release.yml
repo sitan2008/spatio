@@ -228,7 +228,22 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: dtolnay/rust-toolchain@stable
+      - name: Publish crate to crates.io
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          CRATES_IO_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+        run: |
+          TOKEN="${CARGO_REGISTRY_TOKEN:-$CRATES_IO_TOKEN}"
+          if [ -z "$TOKEN" ]; then
+            echo "❌ Missing crates.io token. Set CARGO_REGISTRY_TOKEN or CRATES_IO_TOKEN secret."
+            exit 1
+          fi
+          cargo publish --locked --token "$TOKEN"
+      - name: Await crates.io propagation
+        run: sleep 15
       - name: Tag and release Rust crate
         run: |
           VERSION="${{ needs.detect-changes.outputs.rust-version }}"

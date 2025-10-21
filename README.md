@@ -46,7 +46,7 @@ no SQL parser, no external dependencies, and no setup required.
 - **Configurable Persistence** — Append-Only File (AOF) with sync policies
 - **Graceful Startup and Shutdown** — Automatic AOF replay and sync
 
-### 🌍 Spatial Intelligence
+### Spatial Intelligence
 - **Spatial Indexing** — R-Tree + geohash hybrid indexing
 - **Spatial Queries** — Nearby search, bounding box, distance, containment
 - **Trajectory Support** — Store and query movement over time
@@ -279,7 +279,7 @@ See the [docs site](https://pkvartsianyi.github.io/spatio/) for deeper architect
 
 ## Project Status
 
-- Current version: **0.1.1-alpha.18**
+- Current version: **0.1.1**
 - Alpha quality: APIs may still change while we lock in the storage layout.
 - Follow [releases](https://github.com/pkvartsianyi/spatio/releases) for migration notes and roadmap updates.
 
