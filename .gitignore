@@ -1,6 +1,7 @@
 # Rust build artifacts
 /target/
 py-spatio/target/
+py-spatio/publish_env
 
 # Cargo.lock is excluded for the main library crate
 # but included for the Python bindings (application-like)
