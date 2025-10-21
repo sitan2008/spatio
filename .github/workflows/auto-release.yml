@@ -187,7 +187,7 @@ jobs:
           CARGO_TERM_COLOR: always
         run: |
           echo "Building platform wheels..."
-          maturin build --release --out dist --interpreter python --skip-sdist
+          maturin build --release --out dist --interpreter python
           echo "Listing contents of dist directory..."
           if [ "$RUNNER_OS" = "Windows" ]; then
             dir dist
